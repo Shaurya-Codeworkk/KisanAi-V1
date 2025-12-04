@@ -5,9 +5,11 @@ import requests
 import json
 import os
 import google.generativeai as genai
-from datetime import datetime   # Needed for logs
+from datetime import datetime
 
-# --- CONFIGURATION ---
+# ----------------------------------------------------
+# CONFIG
+# ----------------------------------------------------
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 CACHE_FILE = "gemini_cache.json"
@@ -19,226 +21,193 @@ try:
             ai_cache = json.load(f)
     else:
         ai_cache = {}
-except Exception as e:
-    print(f"⚠️ Cache load failed: {e}")
+except:
     ai_cache = {}
 
 # Configure Gemini
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 else:
-    print("❌ CRITICAL: GOOGLE_API_KEY environment variable is not set!")
+    print("❌ GOOGLE_API_KEY missing")
 
 print("Libraries import ho gayi hain...")
 
-# --- Load ML Models ---
+# ----------------------------------------------------
+# MODEL LOAD
+# ----------------------------------------------------
 try:
-    model = joblib.load('model_gbc.pkl') 
+    model = joblib.load('model_gbc.pkl')
     scaler = joblib.load('scaler.pkl')
     encoder = joblib.load('encoder.pkl')
-    print("ML Models successfully load ho gaye hain! ✅")
+    print("ML Models loaded successfully ✔")
 except Exception as e:
-    print(f"❌ CRITICAL Error loading models: {e}.")
+    print("❌ Model Load Error:", e)
 
-# --- State Abbreviations Mapping ---
+# ----------------------------------------------------
+# HELPERS
+# ----------------------------------------------------
+
 state_map = {
     "up": "Uttar Pradesh", "mh": "Maharashtra", "hr": "Haryana",
     "ka": "Karnataka", "tn": "Tamil Nadu",
 }
 
-# --- Helper ---
-def format_city_for_weather(raw_city_state):
+def format_city_for_weather(raw):
     try:
-        parts = [p.strip() for p in raw_city_state.split(",")]
+        parts = [p.strip() for p in raw.split(",")]
         city = parts[0].title()
         state = parts[1].lower() if len(parts) > 1 else ""
         state_full = state_map.get(state, state.title())
         return f"{city},{state_full},IN"
-    except Exception:
-        return raw_city_state.title()
+    except:
+        return raw.title()
 
-def safe_json_parse(raw_content, fallback):
+def safe_json_parse(raw, fallback):
     try:
-        cleaned = raw_content.strip()
-        if "```json" in cleaned:
-            cleaned = cleaned.split("```json")[1].split("```")[0]
-        elif "```" in cleaned:
-            cleaned = cleaned.split("```")[1].split("```")[0]
-        cleaned = cleaned.strip()
-        return json.loads(cleaned)
-    except Exception as e:
-        print(f"⚠️ JSON parse failed: {e}. Content was: {raw_content}")
+        c = raw.strip()
+        if "```json" in c:
+            c = c.split("```json")[1].split("```")[0]
+        elif "```" in c:
+            c = c.split("```")[1].split("```")[0]
+        return json.loads(c.strip())
+    except:
         return fallback
 
-# --- Live Weather ---
-def get_live_weather(city_name):
-    print(f"[Agent Research] Searching for live weather in {city_name}...")
+def get_live_weather(city):
     if not WEATHER_API_KEY:
-        print("⚠️ WEATHER_API_KEY missing, using defaults.")
-        return 28.0, 60.0
-        
-    base_url = "https://api.openweathermap.org/data/2.5/weather?"
-    complete_url = f"{base_url}appid={WEATHER_API_KEY}&q={city_name}&units=metric"
+        return 28, 60
     try:
-        response = requests.get(complete_url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        if data.get("cod") == 200:
-            main = data["main"]
+        url = f"https://api.openweathermap.org/data/2.5/weather?appid={WEATHER_API_KEY}&q={city}&units=metric"
+        r = requests.get(url, timeout=10).json()
+        if r.get("cod") == 200:
+            main = r["main"]
             return main["temp"], main["humidity"]
-        return 28.0, 60.0
-    except Exception:
-        return 28.0, 60.0
+        return 28, 60
+    except:
+        return 28, 60
 
-# --- Gemini Wrapper ---
-def ask_gemini_ai(prompt_key: str, system_prompt: str, user_prompt: str):
-    key_lower = prompt_key.lower().replace(" ", "_")
-    if key_lower in ai_cache:
-        return ai_cache[key_lower]
+def ask_gemini_ai(key, sys, usr):
+    key = key.lower().replace(" ", "_")
+    if key in ai_cache:
+        return ai_cache[key]
 
     if not GOOGLE_API_KEY:
         return {}
-        
-    try:
-        full_prompt = f"{system_prompt}\n\nUser Query: {user_prompt}\n\nIMPORTANT: Return ONLY valid JSON."
-        model_ai = genai.GenerativeModel('gemini-pro')
-        response = model_ai.generate_content(full_prompt)
-        content = response.text
-        data = safe_json_parse(content, {})
 
+    try:
+        prompt = f"{sys}\n\nUser Query: {usr}\n\nReturn ONLY JSON."
+        m = genai.GenerativeModel("gemini-pro")
+        resp = m.generate_content(prompt)
+        data = safe_json_parse(resp.text, {})
         if data:
-            ai_cache[key_lower] = data
+            ai_cache[key] = data
             with open(CACHE_FILE, "w") as f:
                 json.dump(ai_cache, f, indent=2)
-
         return data
-        
-    except Exception:
+    except:
         return {}
 
-# --- Soil Interpreter ---
-def get_soil_and_location_details(farmer_prompt):
-    system_prompt = "Extract city/state and soil type. Return JSON: {city_or_state, soil_type}."
-    user_prompt = f"Farmer query: {farmer_prompt}"
-    data = ask_gemini_ai(f"soil_location_{farmer_prompt}", system_prompt, user_prompt)
-    if not data.get("city_or_state"): data["city_or_state"] = farmer_prompt
-    if not data.get("soil_type"): data["soil_type"] = "unknown"
-    return data
+# ----------------------------------------------------
+# CORE LOGIC
+# ----------------------------------------------------
+def get_soil_and_location_details(q):
+    sys = "Extract city/state and soil_type. Return JSON."
+    usr = f"Query: {q}"
+    d = ask_gemini_ai(f"soil_{q}", sys, usr)
+    d.setdefault("city_or_state", q)
+    d.setdefault("soil_type", "unknown")
+    return d
 
-# --- Fill Missing Values ---
-def fill_missing_values_ai(details):
-    location_soil = f"{details.get('city_or_state','')}, {details.get('soil_type','unknown')}"
-    system_prompt = "Estimate N,P,K,pH,rainfall for Indian soils. Return JSON."
-    user_prompt = f"Estimate for: {location_soil}"
-    ai_values = ask_gemini_ai(f"npk_{location_soil}", system_prompt, user_prompt)
-    defaults = {'N':50,'P':50,'K':50,'pH':6.5,'rainfall':400}
+def fill_missing_values_ai(d):
+    loc = f"{d['city_or_state']}, {d['soil_type']}"
+    sys = "Estimate N,P,K,pH,rainfall. Return JSON."
+    usr = f"Estimate for: {loc}"
+    ai = ask_gemini_ai(f"npk_{loc}", sys, usr)
+    defaults = {"N":50,"P":50,"K":50,"pH":6.5,"rainfall":400}
     for k in defaults:
-        details[k] = float(ai_values.get(k, defaults[k]))
-    return details
+        d[k] = float(ai.get(k, defaults[k]))
+    return d
 
-# --- ML Prediction ---
-def make_prediction(input_data, top_n=5):
-    df = pd.DataFrame([input_data], columns=model.feature_names_in_)
+def make_prediction(data, top_n=5):
+    df = pd.DataFrame([data], columns=model.feature_names_in_)
     scaled = scaler.transform(df)
-    original_probs = model.predict_proba(scaled)[0]
-    smoothed = np.sqrt(original_probs)
-    total = smoothed.sum()
-    if total == 0:
-        normalized = original_probs
-    else:
-        normalized = smoothed / total
-    top_idx = np.argsort(normalized)[::-1][:top_n]
-    results = []
-    for idx in top_idx:
-        crop = encoder.inverse_transform([idx])[0].lower()
-        results.append((crop, round(normalized[idx]*100,2)))
-    return results
+    probs = model.predict_proba(scaled)[0]
+    sm = np.sqrt(probs)
+    sm = sm / sm.sum()
+    idx = np.argsort(sm)[::-1][:top_n]
+    return [(encoder.inverse_transform([i])[0].lower(), round(sm[i]*100,2)) for i in idx]
 
-# --- Gemini Validation ---
-def validate_with_gemini(predictions, location):
-    if not GOOGLE_API_KEY: return predictions
-    crops_list = [p[0] for p in predictions]
-    if not crops_list: return []
-    system_prompt = "Strictly validate crop suitability. Return JSON {valid_crops}."
-    user_prompt = f"Location: {location}\nCrops: {', '.join(crops_list)}"
-    response = ask_gemini_ai(f"validate_{location}", system_prompt, user_prompt)
-    valid = set([c.lower() for c in response.get("valid_crops", [])])
-    if not valid: return predictions
-    return [p for p in predictions if p[0] in valid]
+def validate_with_gemini(pred, loc):
+    crops = [p[0] for p in pred]
+    if not crops: return pred
+    sys = "Strictly validate crop suitability. Return JSON {valid_crops}."
+    usr = f"Location: {loc} | Crops: {', '.join(crops)}"
+    r = ask_gemini_ai(f"validate_{loc}", sys, usr)
+    valid = set([c.lower() for c in r.get("valid_crops", [])])
+    return [p for p in pred if p[0] in valid] if valid else pred
 
-# --- Live Prices ---
 def get_live_crop_prices():
-    system_prompt = "Return mandi prices JSON."
-    user_prompt = "Prices for rice,wheat,cotton,jute,coffee,mango,pigeonpeas."
-    prices = ask_gemini_ai("crop_prices", system_prompt, user_prompt)
+    sys = "Return mandi prices JSON."
+    usr = "Prices for rice,wheat,cotton,jute,coffee,mango,pigeonpeas."
+    raw = ask_gemini_ai("prices", sys, usr)
     defaults = {"rice":40,"wheat":35,"cotton":80,"jute":60,"coffee":150,"mango":120,"pigeonpeas":90}
     for k,v in defaults.items():
-        if k not in prices: prices[k]=v
-    return {k:float(v) for k,v in prices.items()}
+        raw.setdefault(k, v)
+    return {k: float(v) for k,v in raw.items()}
 
-# --- Future Price AI ---
-def get_future_price_ai(crop_name, location):
-    if location.lower() in ["manual location","manual data","unknown"]:
-        location="India"
-    system_prompt="Predict future crop price. Return JSON {'future_price':number}."
-    user_prompt=f"Predict 6-month price for {crop_name} in {location}."
-    prediction = ask_gemini_ai(f"future_{crop_name}_{location}", system_prompt, user_prompt)
-    val = float(prediction.get("future_price",-1))
-    return val/100 if val>0 else -1
+def get_future_price_ai(crop, loc):
+    if loc.lower() in ["manual location","manual data","unknown"]:
+        loc="India"
+    sys = "Predict future price (per quintal). Return JSON."
+    usr = f"Price for {crop} in {loc}"
+    r = ask_gemini_ai(f"future_{crop}_{loc}", sys, usr)
+    v = float(r.get("future_price",-1))
+    return v/100 if v>0 else -1
 
-# --- Crop Details ---
-def get_crop_dynamic_details(crop_name):
-    system_prompt="Return crop details JSON."
-    user_prompt=f"Details for {crop_name}"
-    data=ask_gemini_ai(f"details_{crop_name}",system_prompt,user_prompt)
+def get_crop_dynamic_details(crop):
+    sys="Return crop details JSON."
+    usr=f"Details for {crop}"
+    d = ask_gemini_ai(f"details_{crop}", sys, usr)
     defaults={"soil":"loamy","irrigation":"flooding","fertilizer":"NPK 20-20-20","pesticides":"2kg/ha"}
-    for k in defaults:
-        if k not in data: data[k]=defaults[k]
-    return data
+    for k,v in defaults.items():
+        d.setdefault(k,v)
+    return d
 
-# --- Crop Rotation ---
-def get_crop_rotation_plan(current_crop,location):
-    system_prompt="Suggest 2-season rotation. Return JSON."
-    user_prompt=f"{current_crop} in {location}"
-    return ask_gemini_ai(f"rotation_{current_crop}_{location}",system_prompt,user_prompt)
+def get_crop_rotation_plan(crop,loc):
+    sys="Suggest 2-season rotation JSON."
+    usr=f"{crop} in {loc}"
+    return ask_gemini_ai(f"rot_{crop}_{loc}",sys,usr)
 
-# --- Grow Guide ---
-def get_grow_guide_details(crop_name):
-    system_prompt="Give grow guide JSON."
-    user_prompt=f"Guide for {crop_name}"
-    return ask_gemini_ai(f"grow_{crop_name}",system_prompt,user_prompt)
+def get_grow_guide_details(crop):
+    sys="Give grow guide JSON."
+    usr=f"Guide for {crop}"
+    return ask_gemini_ai(f"grow_{crop}",sys,usr)
 
-# --- Ranking ---
-def rank_top_3(crop_probs,live_prices,future_prices):
-    transport={"rice":80,"wheat":85,"cotton":50,"jute":60,"coffee":40,"mango":30,"pigeonpeas":70}
-    sorted_rev=sorted(crop_probs,key=lambda x:future_prices.get(x[0],0),reverse=True)
-    sorted_trans=sorted(crop_probs,key=lambda x:transport.get(x[0],0),reverse=True)
-    balanced=[]
-    for crop,prob in crop_probs:
-        sc=(prob*0.5)+(future_prices.get(crop,0)*0.3)+(transport.get(crop,0)*0.2)
-        balanced.append((crop,sc))
-    sorted_bal=sorted(balanced,key=lambda x:x[1],reverse=True)
-    return [sorted_rev[0][0],sorted_trans[0][0],sorted_bal[0][0]]
-
-# --- SAVE LOG ---
-def save_results(input_data,predictions):
-    try:
-        row={**input_data,"predictions":str(predictions),"timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        df=pd.DataFrame([row])
-        df.to_csv("prediction_logs.csv",mode="a",header=not os.path.exists("prediction_logs.csv"),index=False)
-    except Exception:
-        pass
-
+def rank_top_3(crops,live,future):
+    trans={"rice":80,"wheat":85,"cotton":50,"jute":60,"coffee":40,"mango":30,"pigeonpeas":70}
+    rev=sorted(crops,key=lambda x:future.get(x[0],0),reverse=True)
+    tr =sorted(crops,key=lambda x:trans.get(x[0],0),reverse=True)
+    bal=[]
+    for c,p in crops:
+        sc=(p*0.5)+(future.get(c,0)*0.3)+(trans.get(c,0)*0.2)
+        bal.append((c,sc))
+    bal=sorted(bal,key=lambda x:x[1],reverse=True)
+    return [rev[0][0], tr[0][0], bal[0][0]]
 
 # ----------------------------------------------------
-# 🚀🚀🚀 FASTAPI WRAPPER (REQUIRED FOR RENDER) 🚀🚀🚀
+# FASTAPI + STATIC HTML
 # ----------------------------------------------------
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-app = FastAPI(title="KisanAI-V1 API")
+app = FastAPI()
 
+# Serve UI
+app.mount("/ui", StaticFiles(directory="static", html=True), name="static")
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -264,27 +233,27 @@ def health():
     return {"status":"ok","models_loaded":True}
 
 @app.post("/predict")
-def api_predict(req: PredictRequest):
+def predict_api(req: PredictRequest):
     try:
         if req.farmer_prompt:
             base = get_soil_and_location_details(req.farmer_prompt)
             base = fill_missing_values_ai(base)
-            city = format_city_for_weather(base['city_or_state'])
-            temp,hum = get_live_weather(city)
+            city = format_city_for_weather(base["city_or_state"])
+            t,h = get_live_weather(city)
             data = {
-                'N':base['N'],'P':base['P'],'K':base['K'],
-                'temperature':temp,'humidity':hum,
-                'ph':base['pH'],'rainfall':base['rainfall']
+                "N":base["N"], "P":base["P"], "K":base["K"],
+                "temperature":t, "humidity":h,
+                "ph":base["pH"], "rainfall":base["rainfall"]
             }
         else:
             data = {
-                'N': req.N or 50,
-                'P': req.P or 50,
-                'K': req.K or 50,
-                'ph': req.ph or 6.5,
-                'rainfall': req.rainfall or 400,
-                'temperature': req.temperature or 28,
-                'humidity': req.humidity or 60
+                "N":req.N or 50,
+                "P":req.P or 50,
+                "K":req.K or 50,
+                "ph":req.ph or 6.5,
+                "rainfall":req.rainfall or 400,
+                "temperature":req.temperature or 28,
+                "humidity":req.humidity or 60
             }
 
         top = make_prediction(data,5)
@@ -294,20 +263,20 @@ def api_predict(req: PredictRequest):
         ranked = rank_top_3(top,live,future)
 
         return {
-            "final_input": data,
-            "top_crops": top,
-            "validated": validated,
-            "live_prices": live,
-            "future_prices": future,
-            "ranked_top3": ranked
+            "final_input":data,
+            "top_crops":top,
+            "validated":validated,
+            "live_prices":live,
+            "future_prices":future,
+            "ranked_top3":ranked
         }
+
     except Exception as e:
         raise HTTPException(500,str(e))
 
 @app.post("/grow_guide")
-def api_grow(req: GrowGuideRequest):
+def grow_guide_api(req: GrowGuideRequest):
     try:
         return {"crop":req.crop_name, "guide":get_grow_guide_details(req.crop_name)}
     except Exception as e:
         raise HTTPException(500,str(e))
-
