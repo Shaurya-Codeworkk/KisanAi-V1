@@ -1,299 +1,293 @@
-import joblib
-import pandas as pd
-import numpy as np
-import requests
-import json
+# api.py
 import os
-import google.generativeai as genai
-from datetime import datetime
+import json
+from typing import Dict, Any
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
-# --- CONFIGURATION ---
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
-CACHE_FILE = "gemini_cache.json"
+# Keep mini copilot import (you already had this)
+from mini_kisan_copilot import mini_copilot_response
 
-# Load cache
-try:
-    if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE, "r") as f:
-            ai_cache = json.load(f)
-    else:
-        ai_cache = {}
-except Exception as e:
-    print(f"⚠️ Cache load failed: {e}")
-    ai_cache = {}
+router = APIRouter(prefix="")
 
-# Configure Gemini
-if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
-else:
-    print("❌ CRITICAL: GOOGLE_API_KEY environment variable is not set!")
+# --- Pydantic Models ---
+class AgentInput(BaseModel):
+    prompt: str = Field(..., example="Suggest crops for black soil in Pune, MH")
 
-print("Libraries import ho gayi hain...")
+class ManualInput(BaseModel):
+    city_or_state: str = Field(..., example="Pune, MH")
+    N: float = Field(..., example=90.0)
+    P: float = Field(..., example=42.0)
+    K: float = Field(..., example=43.0)
+    temperature: float = Field(..., example=24.5)
+    humidity: float = Field(..., example=82.1)
+    ph: float = Field(..., example=6.5)
+    rainfall: float = Field(..., example=202.9)
 
-# --- Load ML Models ---
-try:
-    model = joblib.load('model_gbc.pkl') 
-    scaler = joblib.load('scaler.pkl')
-    encoder = joblib.load('encoder.pkl')
-    print("ML Models successfully load ho gaye hain! ✅")
-except Exception as e:
-    print(f"❌ CRITICAL Error loading models: {e}.")
+class MiniChatInput(BaseModel):
+    query: str = Field(..., example="tell me about wheat")
 
-# --- State Map ---
-state_map = {
-    "up": "Uttar Pradesh", "mh": "Maharashtra", "hr": "Haryana",
-    "ka": "Karnataka", "tn": "Tamil Nadu",
-}
 
-# --- Helpers ---
-def format_city_for_weather(raw_city_state):
+# --- Helper: Safe check if ML models are available (deferred import to avoid circular import) ---
+def _models_loaded() -> bool:
     try:
-        parts = [p.strip() for p in raw_city_state.split(",")]
-        city = parts[0].title()
-        state = parts[1].lower() if len(parts) > 1 else ""
-        state_full = state_map.get(state, state.title())
-        return f"{city},{state_full},IN"
+        # Deferred import from app.py where models are loaded
+        from app import model, scaler, encoder  # noqa: F401
+        return all([model is not None, scaler is not None, encoder is not None])
     except Exception:
-        return raw_city_state.title()
+        return False
 
-def safe_json_parse(raw, fallback):
+
+# --- Helper: deferred imports of functions from app.py (prevents circular import at module-load time) ---
+def _get_core_funcs():
+    """
+    Returns a dict of functions imported from app.py.
+    Import is done when endpoint is executed.
+    """
     try:
-        cleaned = raw.strip()
-        if "```json" in cleaned:
-            cleaned = cleaned.split("```json")[1].split("```")[0]
-        elif "```" in cleaned:
-            cleaned = cleaned.split("```")[1].split("```")[0]
-        return json.loads(cleaned.strip())
-    except:
-        return fallback
-
-# --- Weather ---
-def get_live_weather(city_name):
-    if not WEATHER_API_KEY:
-        return 28.0, 60.0
-        
-    url = f"https://api.openweathermap.org/data/2.5/weather?appid={WEATHER_API_KEY}&q={city_name}&units=metric"
-    try:
-        r = requests.get(url, timeout=10).json()
-        if r.get("cod") == 200:
-            main = r["main"]
-            return main["temp"], main["humidity"]
-        return 28.0, 60.0
-    except:
-        return 28.0, 60.0
-
-# --- Gemini Wrapper ---
-def ask_gemini_ai(key, sys, usr):
-    key = key.lower().replace(" ", "_")
-    if key in ai_cache:
-        return ai_cache[key]
-
-    if not GOOGLE_API_KEY:
-        return {}
-        
-    try:
-        prompt = f"{sys}\n\nUser Query: {usr}\n\nReturn ONLY JSON."
-        model_ai = genai.GenerativeModel('gemini-pro')
-        resp = model_ai.generate_content(prompt)
-        data = safe_json_parse(resp.text, {})
-
-        if data:
-            ai_cache[key] = data
-            with open(CACHE_FILE, "w") as f:
-                json.dump(ai_cache, f, indent=2)
-
-        return data
-    except:
+        from app import (
+            get_soil_and_location_details,
+            fill_missing_values_ai,
+            format_city_for_weather,
+            get_live_weather,
+            make_prediction,
+            validate_with_gemini,
+            get_live_crop_prices,
+            get_future_price_ai,
+            rank_top_3,
+            get_crop_rotation_plan,
+            get_grow_guide_details,
+            save_results,
+            traffic_light_color,
+        )
+        return {
+            "get_soil_and_location_details": get_soil_and_location_details,
+            "fill_missing_values_ai": fill_missing_values_ai,
+            "format_city_for_weather": format_city_for_weather,
+            "get_live_weather": get_live_weather,
+            "make_prediction": make_prediction,
+            "validate_with_gemini": validate_with_gemini,
+            "get_live_crop_prices": get_live_crop_prices,
+            "get_future_price_ai": get_future_price_ai,
+            "rank_top_3": rank_top_3,
+            "get_crop_rotation_plan": get_crop_rotation_plan,
+            "get_grow_guide_details": get_grow_guide_details,
+            "save_results": save_results,
+            "traffic_light_color": traffic_light_color,
+        }
+    except Exception as e:
+        # If import fails, return empty dict — endpoints will handle failure
+        print(f"Deferred core import failed: {e}")
         return {}
 
-# --- Soil & Location ---
-def get_soil_and_location_details(q):
-    sys = "Extract city/state and soil_type. Return JSON."
-    usr = f"Query: {q}"
-    d = ask_gemini_ai(f"soil_{q}", sys, usr)
-    if not d.get("city_or_state"): d["city_or_state"] = q
-    if not d.get("soil_type"): d["soil_type"] = "unknown"
-    return d
 
-# --- Fill Missing ---
-def fill_missing_values_ai(d):
-    loc = f"{d.get('city_or_state','')}, {d.get('soil_type','unknown')}"
-    sys = "Estimate N,P,K,pH,rainfall for Indian soils. Return JSON."
-    usr = f"Estimate for: {loc}"
-    ai = ask_gemini_ai(f"npk_{loc}", sys, usr)
-    defs = {'N':50,'P':50,'K':50,'pH':6.5,'rainfall':400}
-    for k in defs:
-        d[k] = float(ai.get(k, defs[k]))
-    return d
+# --- Endpoints ---
 
-# --- Prediction ---
-def make_prediction(data, top_n=5):
-    df = pd.DataFrame([data], columns=model.feature_names_in_)
-    scaled = scaler.transform(df)
-    probs = model.predict_proba(scaled)[0]
-    sm = np.sqrt(probs)
-    sm = sm / sm.sum()
-    idxs = np.argsort(sm)[::-1][:top_n]
-    return [(encoder.inverse_transform([i])[0].lower(), round(sm[i]*100,2)) for i in idxs]
+@router.get("/status", tags=["Health"])
+def get_status():
+    """
+    API health check - reports if ML models are loaded.
+    """
+    return {
+        "status": "ok",
+        "service": "Kisan Sathi API",
+        "models_loaded": _models_loaded(),
+        "message": "Service is running."
+    }
 
-# --- Validate ---
-def validate_with_gemini(pred, loc):
-    crops = [p[0] for p in pred]
-    if not crops: return pred
-    sys = "Strictly validate crop suitability. Return JSON {valid_crops}."
-    usr = f"Location: {loc}\nCrops: {', '.join(crops)}"
-    r = ask_gemini_ai(f"validate_{loc}", sys, usr)
-    v = set([c.lower() for c in r.get("valid_crops", [])])
-    if not v: return pred
-    return [p for p in pred if p[0] in v]
 
-# --- Live Prices ---
-def get_live_crop_prices():
-    sys = "Return mandi prices JSON."
-    usr = "Prices for rice,wheat,cotton,jute,coffee,mango,pigeonpeas."
-    p = ask_gemini_ai("prices", sys, usr)
-    defs = {"rice":40,"wheat":35,"cotton":80,"jute":60,"coffee":150,"mango":120,"pigeonpeas":90}
-    for k,v in defs.items():
-        if k not in p: p[k]=v
-    return {k:float(v) for k,v in p.items()}
+@router.post("/predict/agent", tags=["KisanAI Pro"])
+def predict_with_agent(data: AgentInput):
+    """
+    Agent-driven prediction endpoint (uses AI to parse farmer prompt and then full workflow).
+    """
+    core = _get_core_funcs()
+    if not core:
+        raise HTTPException(status_code=500, detail="Core functions unavailable. Check app.py importability.")
 
-# --- Future Price ---
-def get_future_price_ai(crop, loc):
-    if loc.lower() in ["manual location","manual data","unknown"]:
-        loc="India"
-    sys = "Predict future price. Return JSON {'future_price':num}."
-    usr = f"Price for {crop} in {loc}"
-    r = ask_gemini_ai(f"future_{crop}_{loc}", sys, usr)
-    v = float(r.get("future_price",-1))
-    return v/100 if v>0 else -1
+    if not _models_loaded():
+        raise HTTPException(status_code=503, detail="ML models are not loaded. Cannot make predictions.")
 
-# --- Crop Details ---
-def get_crop_dynamic_details(crop):
-    sys="Return crop details JSON."
-    usr=f"Details for {crop}"
-    r = ask_gemini_ai(f"details_{crop}",sys,usr)
-    defs={"soil":"loamy","irrigation":"flooding","fertilizer":"NPK 20-20-20","pesticides":"2kg/ha"}
-    for k in defs:
-        if k not in r: r[k]=defs[k]
-    return r
-
-# --- Rotation ---
-def get_crop_rotation_plan(crop,loc):
-    sys="Suggest 2-season rotation JSON."
-    usr=f"{crop} in {loc}"
-    return ask_gemini_ai(f"rot_{crop}_{loc}",sys,usr)
-
-# --- Grow Guide ---
-def get_grow_guide_details(crop):
-    sys="Give grow guide JSON."
-    usr=f"Guide for {crop}"
-    return ask_gemini_ai(f"grow_{crop}",sys,usr)
-
-# --- Ranking ---
-def rank_top_3(crops,live,future):
-    trans={"rice":80,"wheat":85,"cotton":50,"jute":60,"coffee":40,"mango":30,"pigeonpeas":70}
-    rev=sorted(crops,key=lambda x:future.get(x[0],0),reverse=True)
-    tr =sorted(crops,key=lambda x:trans.get(x[0],0),reverse=True)
-    bal=[]
-    for c,p in crops:
-        sc=(p*0.5)+(future.get(c,0)*0.3)+(trans.get(c,0)*0.2)
-        bal.append((c,sc))
-    bal=sorted(bal,key=lambda x:x[1],reverse=True)
-    return [rev[0][0], tr[0][0], bal[0][0]]
-
-# --- Save Logs ---
-def save_results(d,p):
     try:
-        row={**d,"predictions":str(p),"timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        df=pd.DataFrame([row])
-        df.to_csv("prediction_logs.csv",mode="a",header=not os.path.exists("prediction_logs.csv"),index=False)
-    except:
-        pass
+        base_details = core["get_soil_and_location_details"](data.prompt)
+        base_details = core["fill_missing_values_ai"](base_details)
+        city_for_weather = core["format_city_for_weather"](base_details["city_or_state"])
+        live_temp, live_humidity = core["get_live_weather"](city_for_weather)
 
+        final_data = {
+            "N": base_details["N"],
+            "P": base_details["P"],
+            "K": base_details["K"],
+            "temperature": live_temp,
+            "humidity": live_humidity,
+            "ph": base_details["pH"],
+            "rainfall": base_details["rainfall"],
+        }
 
-# ----------------------------------------------------
-# 🚀 FASTAPI WRAPPER
-# ----------------------------------------------------
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from fastapi.staticfiles import StaticFiles      # >>> ADDED FOR STATIC HTML
+        # Run full workflow (with AI validation)
+        top_crops = core["make_prediction"](final_data, top_n=5)
+        # validate
+        try:
+            top_crops_validated = core["validate_with_gemini"](top_crops, base_details["city_or_state"])
+            if top_crops_validated:
+                top_crops = top_crops_validated
+        except Exception as e:
+            print(f"Validation step failed (continuing with ML results): {e}")
 
-app = FastAPI(title="KisanAI-V1 API")
+        # prices
+        live_prices = {}
+        try:
+            live_prices = core["get_live_crop_prices"]()
+        except Exception as e:
+            print(f"Live price fetch failed: {e}")
 
-# >>> ADDED FOR STATIC HTML
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+        future_prices = {crop: core["get_future_price_ai"](crop, base_details["city_or_state"]) for crop, _ in top_crops}
+        ranked_top3 = core["rank_top_3"](top_crops, live_prices, future_prices)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
+        rotation_plan = {}
+        if ranked_top3 and ranked_top3[2] != "N/A":
+            rotation_plan = core["get_crop_rotation_plan"](ranked_top3[2], base_details["city_or_state"])
 
-class PredictRequest(BaseModel):
-    N: float | None = None
-    P: float | None = None
-    K: float | None = None
-    ph: float | None = None
-    rainfall: float | None = None
-    temperature: float | None = None
-    humidity: float | None = None
-    farmer_prompt: str | None = None
-
-class GrowGuideRequest(BaseModel):
-    crop_name: str
-
-@app.get("/health")
-def health():
-    return {"status":"ok","models_loaded":True}
-
-@app.post("/predict")
-def api_predict(req: PredictRequest):
-    try:
-        if req.farmer_prompt:
-            base = get_soil_and_location_details(req.farmer_prompt)
-            base = fill_missing_values_ai(base)
-            city = format_city_for_weather(base['city_or_state'])
-            t,h = get_live_weather(city)
-            data={
-                'N':base['N'],'P':base['P'],'K':base['K'],
-                'temperature':t,'humidity':h,
-                'ph':base['pH'],'rainfall':base['rainfall']
+        comparison_table = [
+            {
+                "crop": c.title(),
+                "suitability_percent": p,
+                "live_price_rs_kg": f'₹{live_prices.get(c, 0):.2f}',
+                "predicted_future_price_rs_kg": f'₹{future_prices.get(c, -1.0):.2f}' if future_prices.get(c, -1.0) > 0 else "N/A",
+                "recommendation_color": core["traffic_light_color"](p),
             }
-        else:
-            data={
-                'N':req.N or 50,
-                'P':req.P or 50,
-                'K':req.K or 50,
-                'ph':req.ph or 6.5,
-                'rainfall':req.rainfall or 400,
-                'temperature':req.temperature or 28,
-                'humidity':req.humidity or 60
-            }
+            for c, p in top_crops
+        ]
 
-        top = make_prediction(data,5)
-        live = get_live_crop_prices()
-        future={c:get_future_price_ai(c,"India") for c,_ in top}
-        valid = validate_with_gemini(top,"India")
-        ranked=rank_top_3(top,live,future)
+        # Save results asynchronously-ish (function handles exceptions)
+        try:
+            core["save_results"](final_data, top_crops)
+        except Exception as e:
+            print(f"Save results warning: {e}")
 
         return {
-            "final_input":data,
-            "top_crops":top,
-            "validated":valid,
-            "live_prices":live,
-            "future_prices":future,
-            "ranked_top3":ranked
+            "input_parameters": final_data,
+            "location_analyzed": base_details["city_or_state"],
+            "comparison_table": comparison_table,
+            "top_3_recommendations": {
+                "best_revenue": ranked_top3[0] if ranked_top3 else "N/A",
+                "transport_friendly": ranked_top3[1] if ranked_top3 else "N/A",
+                "balanced_choice": ranked_top3[2] if ranked_top3 else "N/A",
+            },
+            "smart_rotation_plan": rotation_plan,
         }
 
     except Exception as e:
-        raise HTTPException(500, str(e))
+        print(f"Error in /predict/agent: {e}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred in the AI Agent.")
 
-@app.post("/grow_guide")
-def api_grow(req: GrowGuideRequest):
+
+@router.post("/predict/manual", tags=["KisanAI Pro"])
+def predict_with_manual_input(data: ManualInput):
+    """
+    Manual numeric input -> ML-only predictions (no AI validation).
+    """
+    core = _get_core_funcs()
+    if not core:
+        raise HTTPException(status_code=500, detail="Core functions unavailable. Check app.py importability.")
+
+    if not _models_loaded():
+        raise HTTPException(status_code=503, detail="ML models are not loaded. Cannot make predictions.")
+
     try:
-        return {"crop":req.crop_name, "guide":get_grow_guide_details(req.crop_name)}
+        final_data = data.dict()
+        location = final_data.pop("city_or_state", "Unknown")
+
+        top_crops = core["make_prediction"](final_data, top_n=5)
+
+        live_prices = {}
+        try:
+            live_prices = core["get_live_crop_prices"]()
+        except Exception as e:
+            print(f"Live price fetch failed: {e}")
+
+        future_prices = {crop: core["get_future_price_ai"](crop, location) for crop, _ in top_crops}
+        ranked_top3 = core["rank_top_3"](top_crops, live_prices, future_prices)
+
+        rotation_plan = {}
+        if ranked_top3 and ranked_top3[2] != "N/A":
+            rotation_plan = core["get_crop_rotation_plan"](ranked_top3[2], location)
+
+        comparison_table = [
+            {
+                "crop": c.title(),
+                "suitability_percent": p,
+                "live_price_rs_kg": f'₹{live_prices.get(c, 0):.2f}',
+                "predicted_future_price_rs_kg": f'₹{future_prices.get(c, -1.0):.2f}' if future_prices.get(c, -1.0) > 0 else "N/A",
+                "recommendation_color": core["traffic_light_color"](p),
+            }
+            for c, p in top_crops
+        ]
+
+        try:
+            core["save_results"](final_data, top_crops)
+        except Exception as e:
+            print(f"Save results warning: {e}")
+
+        return {
+            "input_parameters": final_data,
+            "location_analyzed": location,
+            "comparison_table": comparison_table,
+            "top_3_recommendations": {
+                "best_revenue": ranked_top3[0] if ranked_top3 else "N/A",
+                "transport_friendly": ranked_top3[1] if ranked_top3 else "N/A",
+                "balanced_choice": ranked_top3[2] if ranked_top3 else "N/A",
+            },
+            "smart_rotation_plan": rotation_plan,
+        }
+
     except Exception as e:
-        raise HTTPException(500, str(e))
+        print(f"Error in /predict/manual: {e}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred during manual prediction.")
+
+
+@router.post("/mini_chat", tags=["KisanAI Mini"])
+def mini_chat_endpoint(data: MiniChatInput):
+    """
+    Mini chat endpoint using mini_kisan_copilot.py
+    """
+    try:
+        response_text = mini_copilot_response(data.query)
+        return {"response": response_text}
+    except Exception as e:
+        print("!!!!!!!!!! ERROR IN /mini_chat ENDPOINT !!!!!!!!!!!")
+        print(f"Error Type: {type(e).__name__}")
+        print(f"Error Details: {e}")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        raise HTTPException(status_code=500, detail="An error occurred in the Mini Chat assistant.")
+
+
+@router.get("/grow_guide/{crop_name}", tags=["Grow Guide"])
+def get_grow_guide_endpoint(crop_name: str):
+    """
+    Grow guide endpoint — defers to app.py's function.
+    """
+    core = _get_core_funcs()
+    if not core:
+        raise HTTPException(status_code=500, detail="Core functions unavailable. Check app.py importability.")
+
+    try:
+        guide_data = core["get_grow_guide_details"](crop_name)
+        if not guide_data:
+            raise HTTPException(status_code=404, detail="Could not generate a guide for this crop.")
+        return guide_data
+    except Exception as e:
+        print(f"An error occurred in /grow_guide: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred while generating the grow guide.")
+
+
+# Optional: a lightweight route to serve static index (if you want to keep it here).
+# NOTE: Recommended: let app.py mount StaticFiles. If you still want this, uncomment:
+#
+# @router.get("/", response_class=FileResponse)
+# def serve_index():
+#     if os.path.exists("static/index.html"):
+#         return FileResponse("static/index.html")
+#     raise HTTPException(status_code=404, detail="Index not found.")
+#
