@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CROP SATHI - AI Crop Recommendation System for Smart Farming</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script
+        type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js" } }</script>
+    <style>
+        :root {
+            --primary-green: #34C759;
+            --dark-green: #2d5016;
+            --light-green: #f0fdf4;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f7fafc;
+            overflow-x: hidden;
+        }
+
+        .hero-bg {
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1560493676-04071c5f467b?q=80&w=1974&auto=format&fit=crop') center/cover no-repeat;
+            background-attachment: fixed;
+            perspective: 1px;
+            transform-style: preserve-3d;
+            position: relative;
+        }
+
+        #hero-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            opacity: 0.4;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .section-bg {
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+
+        .professional-nav {
+            backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.85);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -4px;
+            left: 50%;
+            background-color: var(--primary-green);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+
+        .nav-link.active,
+        .nav-link:hover {
+            color: var(--primary-green);
+        }
+
+        .nav-link.active::after,
+        .nav-link:hover::after {
+            width: 100%;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-green);
+            box-shadow: 0 8px 25px rgba(52, 199, 89, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(52, 199, 89, 0.4);
+            background-color: #2da34c;
+        }
+
+        .btn-primary-large {
+            padding: 1rem 2.5rem;
+            font-size: 1.25rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+        }
+
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary-green);
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: var(--primary-green);
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid var(--primary-green);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .help-button-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 999;
+        }
+
+        .help-button {
+            background: linear-gradient(135deg, var(--dark-green), var(--primary-green));
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            padding: 15px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, .2);
+            transition: .3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+        }
+
+        .help-button:hover {
+            transform: translateY(-3px) scale(1.1);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, .3);
+        }
+
+        .help-center {
+            display: none;
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            width: 90%;
+            max-width: 400px;
+            height: 70vh;
+            z-index: 1000;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .help-center.active {
+            display: flex;
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .chat-container-main {
+            background: #fff;
+            border-radius: 20px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, var(--dark-green), var(--primary-green));
+            color: #fff;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header>div {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: var(--light-green);
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 18px;
+            border-radius: 18px;
+            max-width: 85%;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .user-message {
+            background: var(--primary-green);
+            color: #fff;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai-message {
+            background: #fff;
+            color: #4A5568;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-input-container {
+            padding: 15px;
+            background: #fff;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 18px;
+            border: 2px solid #eee;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input:focus {
+            border-color: var(--primary-green);
+        }
+
+        .send-btn {
+            background: var(--primary-green);
+            color: #fff;
+            border: none;
+            padding: 0 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .send-btn:hover {
+            background: var(--dark-green);
+        }
+
+        .animated-card {
+            opacity: 0;
+            transform: translateY(50px);
+        }
+
+        .results-bg {
+            background-image: url('data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-48 0c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-48 0c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7z" fill="%23d4edda" fill-opacity="0.4" fill-rule="evenodd"/%3E%3C/svg%3E');
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 text-gray-800">
+    <div id="languageModal" class="modal">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Choose Your Language / भाषा चुनें</h2>
+            <div class="flex gap-4">
+                <button onclick="setLanguage('english')"
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors">English</button>
+                <button onclick="setLanguage('hindi')"
+                    class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors">हिंदी</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification"
+        class="fixed top-20 right-5 z-[10000] p-4 rounded-lg text-white shadow-lg transition-transform translate-x-[120%]"
+        style="transition-duration: 0.5s;">
+        <span id="notificationMessage"></span>
+    </div>
+
+    <!-- Modals from original code -->
+    <div id="weatherModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-gray-800">🌤️ Weather Forecast</h3>
+                <button onclick="closeModal('weatherModal')"
+                    class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="weatherContent"><!-- Static content from original code --></div>
+        </div>
+    </div>
+    <div id="marketModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-gray-800">📈 Market Prices</h3>
+                <button onclick="closeModal('marketModal')"
+                    class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="marketContent"><!-- Static content from original code --></div>
+        </div>
+    </div>
+
+    <!-- ENGLISH CONTENT -->
+    <div id="englishContent">
+        <nav class="professional-nav">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="text-2xl font-extrabold text-green-700 cursor-pointer" onclick="navigateTo('homePage')">🌾
+                    CROP SATHI</div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <button onclick="navigateTo('homePage')" class="nav-link text-gray-700 font-medium"
+                        data-page="homePage">Home</button>
+                    <button onclick="navigateTo('aiAgentPage')" class="nav-link text-gray-700 font-medium"
+                        data-page="aiAgentPage">KisanAI Pro</button>
+                    <button onclick="navigateTo('recommendationPage')" class="nav-link text-gray-700 font-medium"
+                        data-page="recommendationPage">Get Recommendation</button>
+                    <button onclick="navigateTo('growPage')" class="nav-link text-gray-700 font-medium"
+                        data-page="growPage">Grow Guide</button>
+                    <button onclick="navigateTo('buyPage')" class="nav-link text-gray-700 font-medium"
+                        data-page="buyPage">Buy Products</button>
+                    <button onclick="showLanguageModal()"
+                        class="bg-green-100 text-green-800 hover:bg-green-200 px-4 py-2 rounded-lg font-semibold transition-colors text-sm">Language:
+                        EN</button>
+                </div>
+            </div>
+        </nav>
+
+        <div id="homePage" class="page">
+            <div class="hero-bg min-h-screen">
+                <canvas id="hero-canvas"></canvas>
+                <div
+                    class="hero-content container mx-auto px-6 pt-32 pb-20 text-center text-white relative z-10 flex flex-col items-center justify-center min-h-screen">
+                    <h1 class="text-5xl md:text-7xl font-extrabold mb-6 leading-tight">Smart Farming, Smarter Yields
+                    </h1>
+                    <p class="text-xl md:text-2xl mb-10 max-w-4xl mx-auto leading-relaxed">AI-powered insights for
+                        Indian farmers. Get crop recommendations based on soil, weather, and market data to boost your
+                        productivity.</p>
+                    <button onclick="navigateTo('aiAgentPage')" class="btn-primary btn-primary-large text-white">
+                        🚀 Start with KisanAI Pro
+                    </button>
+                </div>
+            </div>
+
+            <section class="py-20 bg-white">
+                <div class="container mx-auto px-6">
+                    <h2 class="text-4xl font-extrabold text-center mb-16 text-gray-800">Smart Farming Dashboard</h2>
+                    <div class="grid md:grid-cols-3 gap-8">
+                        <div class="animated-card bg-white rounded-2xl p-8 text-center shadow-xl border cursor-pointer hover:transform hover:-translate-y-2 transition-transform duration-300"
+                            onclick="navigateTo('aiAgentPage')">
+                            <div class="text-6xl mb-6">🤖</div>
+                            <h3 class="text-2xl font-bold mb-4 text-gray-800">KisanAI Pro</h3>
+                            <p class="text-gray-600 text-lg leading-relaxed">Get instant, automated crop recommendations
+                                with our most advanced AI.</p>
+                        </div>
+                        <div class="animated-card bg-white rounded-2xl p-8 text-center shadow-xl border cursor-pointer hover:transform hover:-translate-y-2 transition-transform duration-300"
+                            onclick="openModal('weatherModal')">
+                            <div class="text-6xl mb-6">🌤️</div>
+                            <h3 class="text-2xl font-bold mb-4 text-gray-800">Real-time Weather</h3>
+                            <p class="text-gray-600 text-lg leading-relaxed">Access detailed forecasts to make timely
+                                farming decisions.</p>
+                        </div>
+                        <div class="animated-card bg-white rounded-2xl p-8 text-center shadow-xl border cursor-pointer hover:transform hover:-translate-y-2 transition-transform duration-300"
+                            onclick="openModal('marketModal')">
+                            <div class="text-6xl mb-6">📈</div>
+                            <h3 class="text-2xl font-bold mb-4 text-gray-800">Market Intelligence</h3>
+                            <p class="text-gray-600 text-lg leading-relaxed">Stay updated with live crop prices to
+                                maximize your profits.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="py-20 bg-gray-50">
+                <div class="container mx-auto px-6">
+                    <h2 class="text-4xl font-extrabold text-center mb-12 text-gray-800">How It Works in 3 Simple Steps
+                    </h2>
+                    <div class="grid md:grid-cols-3 gap-10">
+                        <div class="animated-card text-center p-8 rounded-2xl bg-white shadow-lg border">
+                            <div class="text-5xl mb-4">💬</div>
+                            <h3 class="text-2xl font-bold mb-3">1. Tell Us Your Details</h3>
+                            <p class="text-gray-600">Go to KisanAI Pro and simply enter your location and soil type.</p>
+                        </div>
+                        <div class="animated-card text-center p-8 rounded-2xl bg-white shadow-lg border">
+                            <div class="text-5xl mb-4">🧠</div>
+                            <h3 class="text-2xl font-bold mb-3">2. AI-Powered Analysis</h3>
+                            <p class="text-gray-600">Our AI analyzes live weather, soil nutrients, and rainfall for your
+                                specific area.</p>
+                        </div>
+                        <div class="animated-card text-center p-8 rounded-2xl bg-white shadow-lg border">
+                            <div class="text-5xl mb-4">📈</div>
+                            <h3 class="text-2xl font-bold mb-3">3. Get a Smart Report</h3>
+                            <p class="text-gray-600">Receive a detailed report with top crops, market prices, and a
+                                rotation plan.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div id="aiAgentPage" class="page section-bg"
+            style="background-image: linear-gradient(rgba(247, 250, 252, 0.8), rgba(247, 250, 252, 0.8)), url('https://images.unsplash.com/photo-1594495894542-a46cc73e081a?q=80&w=2071&auto=format&fit=crop');">
+            <div class="min-h-screen flex items-center justify-center px-4 pt-20">
+                <div class="w-full max-w-2xl text-center">
+                    <h1 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4 animated-card">🤖 KisanAI Pro</h1>
+                    <p class="text-lg text-gray-600 mb-8 animated-card" style="animation-delay: 0.1s;">Your personal AI
+                        farming expert. Just tell me your location and soil type, and I'll handle the rest—from fetching
+                        weather data to finding the perfect NPK values for your land.</p>
+                    <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border animated-card"
+                        style="animation-delay: 0.2s;">
+                        <div class="space-y-6">
+                            <div>
+                                <label for="aiPrompt" class="block text-lg font-semibold text-gray-700 mb-2">Enter your
+                                    Location & Soil Type</label>
+                                <input type="text" id="aiPrompt" placeholder="e.g., Mirzapur, UP with red soil"
+                                    class="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-green-200 focus:border-green-500 transition-all text-lg">
+                            </div>
+                            <button onclick="runAIAgent(false)"
+                                class="w-full btn-primary btn-primary-large text-white flex items-center justify-center">
+                                ✨ Get AI Recommendation
+                            </button>
+                        </div>
+                        <div id="aiLoader" class="hidden flex-col items-center justify-center mt-8">
+                            <div class="loader"></div>
+                            <p class="mt-4 text-gray-600 font-medium">KisanAI Pro is analyzing your request...</p>
+                            <p class="text-sm text-gray-500 text-center mt-2">Fetching live weather, calculating soil
+                                needs, and preparing your personalized crop report.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="recommendationPage" class="page">
+            <div class="py-24 bg-gray-50 section-bg"
+                style="background-image: linear-gradient(rgba(247, 250, 252, 0.9), rgba(247, 250, 252, 0.9)), url('https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?q=80&w=1887&auto=format&fit=crop');">
+                <div class="container mx-auto px-6">
+                    <h2 class="text-4xl md:text-5xl font-extrabold text-center mb-12 text-gray-800 animated-card">Manual
+                        Crop Recommendation</h2>
+                    <div class="max-w-6xl mx-auto bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border animated-card"
+                        style="animation-delay: 0.1s;">
+                        <form id="cropForm" class="space-y-8">
+                            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+                                <!-- City input removed as per user request -->
+                                <input type="hidden" id="city" value="Manual Location">
+                                <div class="md:col-span-2 lg:col-span-2">
+                                    <label for="soilType" class="block text-lg font-semibold text-gray-700 mb-2">Soil
+                                        Type</label>
+                                    <select id="soilType"
+                                        class="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-green-200 focus:border-green-500 transition-all text-lg bg-white">
+                                        <option value="">Select soil type</option>
+                                        <option value="alluvial">Alluvial Soil</option>
+                                        <option value="black">Black Soil (Regur)</option>
+                                        <option value="red">Red Soil</option>
+                                        <option value="laterite">Laterite Soil</option>
+                                        <option value="sandy">Sandy Soil</option>
+                                        <option value="clay">Clay Soil</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">Nitrogen (N)</label>
+                                    <input type="range" id="N" min="0" max="140" value="90">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>0</span><span
+                                            id="NValue" class="font-bold text-green-600">90</span><span>140</span></div>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">Phosphorus (P)</label>
+                                    <input type="range" id="P" min="5" max="145" value="42">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>5</span><span
+                                            id="PValue" class="font-bold text-green-600">42</span><span>145</span></div>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">Potassium (K)</label>
+                                    <input type="range" id="K" min="5" max="205" value="43">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>5</span><span
+                                            id="KValue" class="font-bold text-green-600">43</span><span>205</span></div>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">pH Level</label>
+                                    <input type="range" id="ph" min="3.5" max="9.5" step="0.1" value="6.5">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>3.5</span><span
+                                            id="phValue" class="font-bold text-green-600">6.5</span><span>9.5</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">Temperature
+                                        (°C)</label>
+                                    <input type="range" id="temperature" min="8" max="44" value="25">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>8°C</span><span
+                                            id="tempValue" class="font-bold text-green-600">25°C</span><span>44°C</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">Humidity (%)</label>
+                                    <input type="range" id="humidity" min="14" max="100" value="60">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>14%</span><span
+                                            id="humidityValue"
+                                            class="font-bold text-green-600">60%</span><span>100%</span></div>
+                                </div>
+                                <div class="md:col-span-2 lg:col-span-3">
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">Annual Rainfall
+                                        (mm)</label>
+                                    <input type="range" id="rainfall" min="20" max="300" value="100">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>20mm</span><span
+                                            id="rainfallValue"
+                                            class="font-bold text-green-600">100mm</span><span>300mm</span></div>
+                                </div>
+                            </div>
+                            <div class="text-center pt-8">
+                                <button type="submit" class="btn-primary btn-primary-large text-white">
+                                    Get Manual Recommendation
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="resultsLoader" class="hidden flex-col items-center justify-center mt-8">
+                        <div class="loader"></div>
+                        <p class="mt-4 text-gray-600 font-medium">Analyzing your data...</p>
+                    </div>
+
+                    <div id="results" class="hidden mt-12 results-bg p-4 sm:p-8 rounded-2xl">
+                        <!-- Dynamic content will be injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="growPage" class="page">
+            <main class="container mx-auto px-6 pt-24 pb-12 min-h-screen">
+                <div id="cropSelection">
+                    <div class="text-center mb-12">
+                        <h2 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4 animated-card">Crop Growing
+                            Guide</h2>
+                        <p class="text-lg text-gray-600 max-w-3xl mx-auto animated-card" style="animation-delay: 0.1s;">
+                            Choose a crop to get a detailed, AI-generated guide on irrigation, pesticides, and more.</p>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6" id="cropGrid">
+                        <!-- Crop cards will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div id="cropReport" class="hidden"></div>
+            </main>
+        </div>
+
+        <div id="buyPage" class="page">
+            <main class="container mx-auto px-6 pt-24 pb-12 min-h-screen">
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">Agri-Product Marketplace</h2>
+                    <p class="text-lg text-gray-600 max-w-3xl mx-auto">Quality products to support your farming needs.
+                        Secure and fast delivery across India.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <!-- Product Card Example 1 -->
+                    <div
+                        class="bg-white rounded-xl shadow-lg overflow-hidden border transform hover:-translate-y-2 transition-transform duration-300 animated-card">
+                        <img src="bag.jpeg" alt="Urea Fertilizer" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold mb-2">Urea Fertilizer (46% N)</h3>
+                            <p class="text-gray-600 mb-4 text-sm">High-quality nitrogen fertilizer for boosting plant
+                                growth. 45kg bag.</p>
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="text-2xl font-extrabold text-green-600">₹268</span>
+                                <span class="text-gray-500 line-through">₹300</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    class="w-full bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors">Buy
+                                    Now</button>
+                                <button
+                                    class="w-full bg-gray-200 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors">Add
+                                    to Cart</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Product Card Example 2 -->
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden border transform hover:-translate-y-2 transition-transform duration-300 animated-card"
+                        style="animation-delay: 0.1s;">
+                        <img src="bottle.jpeg" alt="Neem Oil Pesticide" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold mb-2">Organic Neem Oil Pesticide</h3>
+                            <p class="text-gray-600 mb-4 text-sm">Effective against a wide range of pests. Safe for
+                                organic farming. 1 Litre.</p>
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="text-2xl font-extrabold text-green-600">₹450</span>
+                                <span class="text-gray-500 line-through">₹500</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    class="w-full bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors">Buy
+                                    Now</button>
+                                <button
+                                    class="w-full bg-gray-200 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors">Add
+                                    to Cart</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- HINDI CONTENT (Structure mirrors English) -->
+    <div id="hindiContent">
+        <nav class="professional-nav">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="text-2xl font-extrabold text-green-700 cursor-pointer"
+                    onclick="navigateTo('homePage', true)">🌾 क्रॉप साथी</div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <button onclick="navigateTo('homePage', true)" class="nav-link text-gray-700 font-medium"
+                        data-page-hindi="homePage">होम</button>
+                    <button onclick="navigateTo('aiAgentPage', true)" class="nav-link text-gray-700 font-medium"
+                        data-page-hindi="aiAgentPage">किसानAI प्रो</button>
+                    <button onclick="navigateTo('recommendationPage', true)" class="nav-link text-gray-700 font-medium"
+                        data-page-hindi="recommendationPage">सुझाव पाएं</button>
+                    <button onclick="navigateTo('growPage', true)" class="nav-link text-gray-700 font-medium"
+                        data-page-hindi="growPage">विकास गाइड</button>
+                    <button onclick="navigateTo('buyPage', true)" class="nav-link text-gray-700 font-medium"
+                        data-page-hindi="buyPage">उत्पाद खरीदें</button>
+                    <button onclick="showLanguageModal()"
+                        class="bg-green-100 text-green-800 hover:bg-green-200 px-4 py-2 rounded-lg font-semibold transition-colors text-sm">भाषा:
+                        हिंदी</button>
+                </div>
+            </div>
+        </nav>
+
+        <div id="homePageHindi" class="page">
+            <div class="hero-bg relative">
+                <div
+                    class="container mx-auto px-6 pt-32 pb-20 text-center text-white relative z-10 flex flex-col items-center justify-center min-h-screen">
+                    <h1 class="text-5xl md:text-7xl font-extrabold mb-6 leading-tight">स्मार्ट खेती, बेहतर उपज</h1>
+                    <p class="text-xl md:text-2xl mb-10 max-w-4xl mx-auto leading-relaxed">भारतीय किसानों के लिए
+                        AI-संचालित अंतर्दृष्टि। अपनी उत्पादकता बढ़ाने के लिए मिट्टी, मौसम और बाजार के आंकड़ों के आधार पर
+                        फसल सुझाव प्राप्त करें।</p>
+                    <button onclick="navigateTo('aiAgentPage', true)" class="btn-primary btn-primary-large text-white">
+                        🚀 किसानAI प्रो के साथ शुरू करें
+                    </button>
+                </div>
+            </div>
+            <!-- How it Works & Testimonials in Hindi -->
+        </div>
+        <div id="aiAgentPageHindi" class="page">
+            <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4 pt-20">
+                <div class="w-full max-w-3xl text-center">
+                    <h1 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">🤖 किसानAI प्रो</h1>
+                    <p class="text-lg text-gray-600 mb-8">आपका व्यक्तिगत AI कृषि विशेषज्ञ। बस मुझे अपना स्थान और मिट्टी
+                        का प्रकार बताएं, और मैं बाकी सब कुछ संभाल लूंगा - मौसम डेटा प्राप्त करने से लेकर आपकी भूमि के
+                        लिए सही NPK मान खोजने तक।</p>
+                    <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8 border">
+                        <div class="space-y-6">
+                            <div>
+                                <label for="aiPromptHindi" class="block text-lg font-semibold text-gray-700 mb-2">अपना
+                                    स्थान और मिट्टी का प्रकार दर्ज करें</label>
+                                <input type="text" id="aiPromptHindi"
+                                    placeholder="जैसे, मिर्ज़ापुर, यूपी लाल मिट्टी के साथ"
+                                    class="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-green-200 focus:border-green-500 transition-all text-lg">
+                            </div>
+                            <button onclick="runAIAgent(true)"
+                                class="w-full btn-primary btn-primary-large text-white flex items-center justify-center">
+                                ✨ AI सुझाव प्राप्त करें
+                            </button>
+                        </div>
+                        <div id="aiLoaderHindi" class="hidden flex-col items-center justify-center mt-8">
+                            <div class="loader"></div>
+                            <p class="mt-4 text-gray-600 font-medium">किसानAI प्रो आपके अनुरोध का विश्लेषण कर रहा है...
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="recommendationPageHindi" class="page">
+            <div class="py-24 bg-gray-50">
+                <div class="container mx-auto px-6">
+                    <h2 class="text-4xl md:text-5xl font-extrabold text-center mb-12 text-gray-800">मैनुअल फसल सुझाव
+                    </h2>
+                    <div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8 border">
+                        <form id="cropFormHindi" class="space-y-8">
+                            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+                                <!-- City input removed as per user request -->
+                                <input type="hidden" id="cityHindi" value="मैनुअल स्थान">
+                                <div class="md:col-span-2 lg:col-span-2">
+                                    <label for="soilTypeHindi"
+                                        class="block text-lg font-semibold text-gray-700 mb-2">मिट्टी का प्रकार</label>
+                                    <select id="soilTypeHindi"
+                                        class="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-green-200 focus:border-green-500 transition-all text-lg bg-white">
+                                        <option value="">मिट्टी का प्रकार चुनें</option>
+                                        <option value="alluvial">जलोढ़ मिट्टी</option>
+                                        <option value="black">काली मिट्टी (रेगुर)</option>
+                                        <option value="red">लाल मिट्टी</option>
+                                        <option value="laterite">लैटेराइट मिट्टी</option>
+                                        <option value="sandy">रेतीली मिट्टी</option>
+                                        <option value="clay">चिकनी मिट्टी</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">नाइट्रोजन (N)</label>
+                                    <input type="range" id="NHindi" min="0" max="140" value="90">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>0</span><span
+                                            id="NValueHindi" class="font-bold text-green-600">90</span><span>140</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">फास्फोरस (P)</label>
+                                    <input type="range" id="PHindi" min="5" max="145" value="42">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>5</span><span
+                                            id="PValueHindi" class="font-bold text-green-600">42</span><span>145</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">पोटेशियम (K)</label>
+                                    <input type="range" id="KHindi" min="5" max="205" value="43">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>5</span><span
+                                            id="KValueHindi" class="font-bold text-green-600">43</span><span>205</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">pH स्तर</label>
+                                    <input type="range" id="phHindi" min="3.5" max="9.5" step="0.1" value="6.5">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>3.5</span><span
+                                            id="phValueHindi"
+                                            class="font-bold text-green-600">6.5</span><span>9.5</span></div>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">तापमान (°C)</label>
+                                    <input type="range" id="temperatureHindi" min="8" max="44" value="25">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>8°C</span><span
+                                            id="tempValueHindi"
+                                            class="font-bold text-green-600">25°C</span><span>44°C</span></div>
+                                </div>
+                                <div>
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">आर्द्रता (%)</label>
+                                    <input type="range" id="humidityHindi" min="14" max="100" value="60">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>14%</span><span
+                                            id="humidityValueHindi"
+                                            class="font-bold text-green-600">60%</span><span>100%</span></div>
+                                </div>
+                                <div class="md:col-span-2 lg:col-span-3">
+                                    <label class="block text-lg font-semibold text-gray-700 mb-2">वार्षिक वर्षा
+                                        (mm)</label>
+                                    <input type="range" id="rainfallHindi" min="20" max="300" value="100">
+                                    <div class="flex justify-between text-sm text-gray-600 mt-2"><span>20mm</span><span
+                                            id="rainfallValueHindi"
+                                            class="font-bold text-green-600">100mm</span><span>300mm</span></div>
+                                </div>
+                            </div>
+                            <div class="text-center pt-8">
+                                <button type="submit" class="btn-primary btn-primary-large text-white">
+                                    मैनुअल सुझाव प्राप्त करें
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div id="resultsLoaderHindi" class="hidden flex-col items-center justify-center mt-8">
+                        <div class="loader"></div>
+                        <p class="mt-4 text-gray-600 font-medium">आपके डेटा का विश्लेषण हो रहा है...</p>
+                    </div>
+                    <div id="resultsHindi" class="hidden mt-12">
+                        <!-- Hindi results will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="growPageHindi" class="page">
+            <main class="container mx-auto px-6 pt-24 pb-12 min-h-screen">
+                <div id="cropSelectionHindi">
+                    <div class="text-center mb-12">
+                        <h2 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">फसल उगाने की गाइड</h2>
+                        <p class="text-lg text-gray-600 max-w-3xl mx-auto">विस्तृत उगाने की जानकारी, उर्वरक सिफारिशें,
+                            और मौसमी मार्गदर्शन प्राप्त करने के लिए एक फसल चुनें।</p>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6" id="cropGridHindi">
+                        <!-- Hindi crop cards will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div id="cropReportHindi" class="hidden"></div>
+            </main>
+        </div>
+        <div id="buyPageHindi" class="page">
+            <main class="container mx-auto px-6 pt-24 pb-12 min-h-screen">
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-4">कृषि-उत्पाद बाज़ार</h2>
+                    <p class="text-lg text-gray-600 max-w-3xl mx-auto">आपकी खेती की ज़रूरतों को पूरा करने के लिए
+                        गुणवत्ता वाले उत्पाद। पूरे भारत में सुरक्षित और तेज़ डिलीवरी।</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <!-- Hindi Product Card Example -->
+                    <div
+                        class="bg-white rounded-xl shadow-lg overflow-hidden border transform hover:-translate-y-2 transition-transform duration-300">
+                        <img src="https://media.istockphoto.com/id/1323338804/photo/urea-in-a-white-sack.jpg?s=612x612&w=0&k=20&c=slwJVLGI-P4kKFPhBjbVvChCaV0a3t22sPo0d-P_Y9g="
+                            alt="यूरिया उर्वरक" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold mb-2">यूरिया उर्वरक (46% N)</h3>
+                            <p class="text-gray-600 mb-4 text-sm">पौधों की वृद्धि को बढ़ावा देने के लिए उच्च गुणवत्ता
+                                वाला नाइट्रोजन उर्वरक। 45 किलो का बैग।</p>
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="text-2xl font-extrabold text-green-600">₹268</span>
+                                <span class="text-gray-500 line-through">₹300</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    class="w-full bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors">अभी
+                                    खरीदें</button>
+                                <button
+                                    class="w-full bg-gray-200 text-gray-800 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors">कार्ट
+                                    में डालें</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- FLOATING AI AGENT -->
+    <div class="help-button-container">
+        <button class="help-button" onclick="toggleHelpCenter()" id="helpButton">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 8V4H8" />
+                <rect x="8" y="16" width="8" height="4" />
+                <path d="M5 16H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <path d="M18.37 7.37a1 1 0 1 0-1.37-1.37" />
+                <path d="M10.87 7.87a1 1 0 1 0-1.37-1.37" />
+                <path
+                    d="M16 12.5c0 .83-.67 1.5-1.5 1.5h-1c-.83 0-1.5-.67-1.5-1.5v-1c0-.83.67-1.5 1.5-1.5h1c.83 0 1.5.67 1.5 1.5v1z" />
+            </svg>
+        </button>
+    </div>
+
+    <div class="help-center" id="helpCenter">
+        <div class="chat-container-main">
+            <div class="chat-header">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 8V4H8" />
+                        <rect x="8" y="16" width="8" height="4" />
+                        <path d="M5 16H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                        <path d="M18.37 7.37a1 1 0 1 0-1.37-1.37" />
+                        <path d="M10.87 7.87a1 1 0 1 0-1.37-1.37" />
+                        <path
+                            d="M16 12.5c0 .83-.67 1.5-1.5 1.5h-1c-.83 0-1.5-.67-1.5-1.5v-1c0-.83.67-1.5 1.5-1.5h1c.83 0 1.5.67 1.5 1.5v1z" />
+                    </svg>
+                    <span>KisanAI Mini</span>
+                </div>
+                <button class="close-btn" onclick="toggleHelpCenter()">×</button>
+            </div>
+            <div class="chat-messages" id="chatMessagesAgent">
+                <div class="message ai-message">
+                    Namaste! I am KisanAI Mini. Ask me for quick facts about crops like "tell me about wheat".
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" id="chatInputAgent" placeholder="Ask about a crop..."
+                    onkeypress="handleKeyPressAgent(event)">
+                <button class="send-btn" onclick="sendMessageAgent()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- CONFIGURATION ---
+        const API_BASE_URL = "";
+        let currentLanguage = 'english';
+
+        // --- 3D HERO ANIMATION ---
+        let camera, scene, renderer, stars;
+        function init3D() {
+            const canvas = document.getElementById('hero-canvas');
+            if (!canvas || !window.WebGLRenderingContext) {
+                console.log("WebGL not supported, skipping 3D animation.");
+                if (canvas) canvas.style.display = 'none';
+                return;
+            }
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+            camera.position.z = 1;
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            const starGeo = new THREE.BufferGeometry();
+            const starVertices = [];
+            for (let i = 0; i < 8000; i++) {
+                const x = (Math.random() - 0.5) * 2000;
+                const y = (Math.random() - 0.5) * 2000;
+                const z = (Math.random() - 2) * 1000;
+                starVertices.push(x, y, z);
+            }
+            starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+            let sprite = new THREE.TextureLoader().load('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABl0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAlklEQVQ4T2P8//8/Ay0BEwONwagFAz8GwgCgDGYwDAwMM3Qx3wzSzAihsYg4Gy7ex/+/f2T48uULnJzcMJD1gJgNDEwlYInHYb4YpP5D/P//P8P169f5z3/+/JmxmdGN4aM/JmQBsDgjthkYGBhGfA6fGd4yZCP4/fsnww8fPjD8+vXrP8P//39mcHByZvBwcsZgBQAAdyWM0H2QkQ0AAAAASUVORK5CYII=');
+            let starMaterial = new THREE.PointsMaterial({
+                color: 0x90ee90,
+                size: 0.8,
+                map: sprite,
+                transparent: true,
+                opacity: 0.7
+            });
+            stars = new THREE.Points(starGeo, starMaterial);
+            scene.add(stars);
+
+            window.addEventListener('resize', onWindowResize, false);
+            document.body.addEventListener('mousemove', (e) => {
+                const x = (e.clientX / window.innerWidth - 0.5) * 0.5;
+                const y = (e.clientY / window.innerHeight - 0.5) * 0.5;
+                gsap.to(camera.position, {
+                    x: -x,
+                    y: y,
+                    duration: 1,
+                    ease: "power2.out"
+                });
+            });
+            animate3D();
+        }
+
+        function onWindowResize() {
+            if (!renderer) return;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate3D() {
+            if (!stars) return;
+            stars.rotation.y += 0.0001;
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate3D);
+        }
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            gsap.registerPlugin(ScrollTrigger);
+            setLanguage('english');
+            updateSliderValues();
+            setupFormEventListeners();
+            populateGrowPage();
+            initAnimations();
+            init3D();
+        });
+
+        // --- ANIMATIONS ---
+        function initAnimations() {
+            gsap.utils.toArray('.animated-card').forEach(card => {
+                gsap.fromTo(card,
+                    { autoAlpha: 0, y: 50 },
+                    {
+                        autoAlpha: 1, y: 0, duration: 0.8, ease: 'power2.out',
+                        scrollTrigger: {
+                            trigger: card,
+                            start: 'top 85%',
+                            toggleActions: 'play none none none'
+                        }
+                    }
+                );
+            });
+        }
+
+        // --- NAVIGATION & UI ---
+        window.setLanguage = function (lang) {
+            currentLanguage = lang;
+            document.getElementById('languageModal').classList.remove('active');
+            document.getElementById('englishContent').style.display = lang === 'english' ? 'block' : 'none';
+            document.getElementById('hindiContent').style.display = lang === 'hindi' ? 'block' : 'none';
+            navigateTo('homePage', lang === 'hindi');
+            populateGrowPage();
+        }
+
+        window.showLanguageModal = function () { document.getElementById('languageModal').classList.add('active'); }
+
+        window.navigateTo = function (pageId, isHindi = false) {
+            const contentId = isHindi ? 'hindiContent' : 'englishContent';
+            document.querySelectorAll(`#${contentId} .page`).forEach(page => page.classList.remove('active'));
+            document.getElementById(pageId + (isHindi ? 'Hindi' : '')).classList.add('active');
+
+            const navLinkSelector = isHindi ? '[data-page-hindi]' : '[data-page]';
+            const dataAttribute = isHindi ? 'data-page-hindi' : 'data-page';
+
+            document.querySelectorAll(`.nav-link${navLinkSelector}`).forEach(link => link.classList.remove('active'));
+            const activeLink = document.querySelector(`.nav-link[${dataAttribute}="${pageId}"]`);
+            if (activeLink) activeLink.classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const messageSpan = document.getElementById('notificationMessage');
+            messageSpan.textContent = message;
+            notification.className = `fixed top-20 right-5 z-[10000] p-4 rounded-lg text-white shadow-lg transition-transform translate-x-0`;
+            notification.classList.add(type === 'success' ? 'bg-green-500' : 'bg-red-500');
+            setTimeout(() => { notification.style.transform = 'translateX(120%)'; }, 3000);
+        }
+
+        // --- FORM & SLIDER LOGIC ---
+        function updateSliderValues() {
+            const sliders = [
+                { id: 'N', valueId: 'NValue' }, { id: 'P', valueId: 'PValue' }, { id: 'K', valueId: 'KValue' },
+                { id: 'ph', valueId: 'phValue' }, { id: 'temperature', valueId: 'tempValue', suffix: '°C' },
+                { id: 'humidity', valueId: 'humidityValue', suffix: '%' }, { id: 'rainfall', valueId: 'rainfallValue', suffix: 'mm' },
+                { id: 'NHindi', valueId: 'NValueHindi' }, { id: 'PHindi', valueId: 'PValueHindi' }, { id: 'KHindi', valueId: 'KValueHindi' },
+                { id: 'phHindi', valueId: 'phValueHindi' }, { id: 'temperatureHindi', valueId: 'tempValueHindi', suffix: '°C' },
+                { id: 'humidityHindi', valueId: 'humidityValueHindi', suffix: '%' }, { id: 'rainfallHindi', valueId: 'rainfallValueHindi', suffix: 'mm' }
+            ];
+            sliders.forEach(({ id, valueId, suffix = '' }) => {
+                const el = document.getElementById(id);
+                const valEl = document.getElementById(valueId);
+                if (el && valEl) {
+                    const update = () => valEl.textContent = el.value + suffix;
+                    el.addEventListener('input', update);
+                    update();
+                }
+            });
+        }
+
+        function setupFormEventListeners() {
+            document.getElementById('cropForm').addEventListener('submit', (e) => { e.preventDefault(); handleManualFormSubmit(false); });
+            document.getElementById('cropFormHindi').addEventListener('submit', (e) => { e.preventDefault(); handleManualFormSubmit(true); });
+        }
+
+        // --- API & DATA HANDLING ---
+        window.runAIAgent = async function (isHindi) {
+            const suffix = isHindi ? 'Hindi' : '';
+            const prompt = document.getElementById(`aiPrompt${suffix}`).value;
+            const loader = document.getElementById(`aiLoader${suffix}`);
+            if (!prompt) {
+                showNotification(isHindi ? 'कृपया स्थान और मिट्टी का प्रकार दर्ज करें।' : 'Please enter a location and soil type.', 'error');
+                return;
+            }
+            loader.style.display = 'flex';
+            try {
+                const response = await fetch(`${API_BASE_URL}/predict/agent`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || `API Error: ${response.statusText}`);
+                }
+                const data = await response.json();
+                autoFillAndShowResults(data, isHindi);
+                showNotification(isHindi ? 'AI रिपोर्ट सफलतापूर्वक तैयार हो गई!' : 'AI Report generated successfully!');
+            } catch (error) {
+                console.error('KisanAI Pro Error:', error);
+                showNotification(isHindi ? 'AI एजेंट से कनेक्ट करने में विफल। कृपया पुनः प्रयास करें।' : 'Failed to connect to the AI Agent. Please try again.', 'error');
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        async function handleManualFormSubmit(isHindi) {
+            const suffix = isHindi ? 'Hindi' : '';
+            const resultsLoader = document.getElementById(`resultsLoader${suffix}`);
+            // Use a default value since the input is hidden/removed
+            const city = isHindi ? "मैनुअल डेटा" : "Manual Data";
+            resultsLoader.style.display = 'flex';
+            document.getElementById(`results${suffix}`).classList.add('hidden');
+            const formData = {
+                city_or_state: city,
+                N: parseFloat(document.getElementById(`N${suffix}`).value), P: parseFloat(document.getElementById(`P${suffix}`).value),
+                K: parseFloat(document.getElementById(`K${suffix}`).value), temperature: parseFloat(document.getElementById(`temperature${suffix}`).value),
+                humidity: parseFloat(document.getElementById(`humidity${suffix}`).value), ph: parseFloat(document.getElementById(`ph${suffix}`).value),
+                rainfall: parseFloat(document.getElementById(`rainfall${suffix}`).value),
+            };
+            try {
+                const response = await fetch(`${API_BASE_URL}/predict/manual`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || `API Error: ${response.statusText}`);
+                }
+                const data = await response.json();
+                displayResults(data, isHindi);
+                showNotification(isHindi ? 'रिपोर्ट सफलतापूर्वक तैयार हो गई!' : 'Report generated successfully!');
+            } catch (error) {
+                console.error('Manual Prediction Error:', error);
+                showNotification(isHindi ? 'सुझाव प्राप्त करने में विफल। कृपया पुनः प्रयास करें।' : 'Failed to get recommendations. Please try again.', 'error');
+            } finally {
+                resultsLoader.style.display = 'none';
+            }
+        }
+
+        function autoFillAndShowResults(data, isHindi) {
+            navigateTo('recommendationPage', isHindi);
+            setTimeout(() => {
+                const suffix = isHindi ? 'Hindi' : '';
+                const params = data.input_parameters;
+                const fields = {
+                    [`city${suffix}`]: data.location_analyzed, [`N${suffix}`]: params.N, [`P${suffix}`]: params.P,
+                    [`K${suffix}`]: params.K, [`ph${suffix}`]: params.ph, [`temperature${suffix}`]: params.temperature,
+                    [`humidity${suffix}`]: params.humidity, [`rainfall${suffix}`]: params.rainfall
+                };
+                for (const [id, value] of Object.entries(fields)) {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.value = parseFloat(value).toFixed(1);
+                        el.dispatchEvent(new Event('input'));
+                    }
+                }
+                displayResults(data, isHindi);
+            }, 500);
+        }
+
+        function displayResults(data, isHindi) {
+            const suffix = isHindi ? 'Hindi' : '';
+            const resultsDiv = document.getElementById(`results${suffix}`);
+            if (!resultsDiv) return;
+
+            const top3 = data.top_3_recommendations;
+            const getIconForCrop = (cropName) => {
+                const cropKey = (cropName || '').toLowerCase();
+                return cropData[cropKey] ? cropData[cropKey].icon : '🌱';
+            }
+
+            const tableRows = data.comparison_table.map((item, index) => {
+                const color = item.recommendation_color.toLowerCase();
+                const colorClasses = { green: 'bg-green-100 text-green-800', yellow: 'bg-yellow-100 text-yellow-800', red: 'bg-red-100 text-red-800' };
+                const progressColor = { green: 'bg-green-500', yellow: 'bg-yellow-500', red: 'bg-red-500' };
+                return `
+                <div class="result-card grid grid-cols-12 gap-4 items-center animated-card">
+                    <div class="font-bold text-lg text-gray-500 text-center">${index + 1}</div>
+                    <div class="font-bold text-lg col-span-3 capitalize flex items-center gap-2">${getIconForCrop(item.crop)} ${item.crop}</div>
+                    <div class="col-span-3">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="${progressColor[color] || 'bg-gray-400'} h-2.5 rounded-full" style="width: ${item.suitability_percent}%"></div>
+                        </div>
+                        <div class="text-sm text-center mt-1">${item.suitability_percent}% ${isHindi ? 'उपयुक्तता' : 'Suitability'}</div>
+                    </div>
+                    <div class="col-span-2 text-center font-semibold">${item.live_price_rs_kg}</div>
+                    <div class="col-span-2 text-center font-semibold">${item.predicted_future_price_rs_kg}</div>
+                    <div class="col-span-1 text-center">
+                        <button onclick="openGrowGuide('${item.crop}')" class="text-green-600 hover:text-green-800" title="${isHindi ? 'फसल गाइड' : 'Grow Guide'}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+
+            const rotationPlanHTML = data.smart_rotation_plan && !data.smart_rotation_plan.error
+                ? `<div class="bg-white p-6 rounded-xl border shadow-lg animated-card">
+                   <h4 class="text-2xl font-semibold text-gray-800 mb-4">🌿 ${isHindi ? 'स्मार्ट फसल चक्र योजना' : 'Smart Crop Rotation Plan'}</h4>
+                   <div class="space-y-3">
+                       <p><strong>${isHindi ? 'अगला सीजन:' : 'Next Season:'}</strong> <span class="font-semibold text-green-700 capitalize">${data.smart_rotation_plan.season_1_crop}</span> - ${data.smart_rotation_plan.season_1_reason}</p>
+                       <p><strong>${isHindi ? 'उसके बाद:' : 'Season After:'}</strong> <span class="font-semibold text-green-700 capitalize">${data.smart_rotation_plan.season_2_crop}</span> - ${data.smart_rotation_plan.season_2_reason}</p>
+                   </div>
+               </div>`
+                : '';
+
+            resultsDiv.innerHTML = `
+            <h3 class="text-3xl font-bold text-green-800 mb-8 text-center">${isHindi ? 'आपकी व्यक्तिगत फसल रिपोर्ट' : 'Your Personalized Crop Report'}</h3>
+            <div class="mb-12">
+                <h4 class="text-2xl font-semibold text-gray-800 mb-4">${isHindi ? 'शीर्ष 3 केंद्रित सिफारिशें' : 'Top 3 Focused Recommendations'}</h4>
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="animated-card bg-white p-6 rounded-xl border-2 border-yellow-300 shadow-lg flex items-center gap-4"><span class="text-4xl">${getIconForCrop(top3.best_revenue)}</span><div><h5 class="font-bold text-lg">${isHindi ? 'सर्वश्रेष्ठ राजस्व' : 'Best Revenue'}</h5><p class="text-2xl font-extrabold text-yellow-600 capitalize">${top3.best_revenue}</p></div></div>
+                    <div class="animated-card bg-white p-6 rounded-xl border-2 border-blue-300 shadow-lg flex items-center gap-4"><span class="text-4xl">${getIconForCrop(top3.transport_friendly)}</span><div><h5 class="font-bold text-lg">${isHindi ? 'परिवहन-अनुकूल' : 'Transport-Friendly'}</h5><p class="text-2xl font-extrabold text-blue-600 capitalize">${top3.transport_friendly}</p></div></div>
+                    <div class="animated-card bg-white p-6 rounded-xl border-2 border-green-300 shadow-lg flex items-center gap-4"><span class="text-4xl">${getIconForCrop(top3.balanced_choice)}</span><div><h5 class="font-bold text-lg">${isHindi ? 'संतुलित विकल्प' : 'Balanced Choice'}</h5><p class="text-2xl font-extrabold text-green-600 capitalize">${top3.balanced_choice}</p></div></div>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-xl border shadow-lg mb-8">
+                <h4 class="text-2xl font-semibold text-gray-800 mb-4">${isHindi ? 'विस्तृत फसल विश्लेषण' : 'Detailed Crop Analysis'}</h4>
+                <div class="grid grid-cols-12 gap-4 items-center font-bold text-gray-500 mb-2 px-4 text-sm">
+                    <div class="text-center">#</div>
+                    <div class="col-span-3">${isHindi ? 'फसल' : 'Crop'}</div>
+                    <div class="col-span-3 text-center">${isHindi ? 'उपयुक्तता' : 'Suitability'}</div>
+                    <div class="col-span-2 text-center">${isHindi ? 'लाइव मूल्य' : 'Live Price'}</div>
+                    <div class="col-span-2 text-center">${isHindi ? 'भविष्य मूल्य' : 'Future Price'}</div>
+                    <div class="col-span-1 text-center">${isHindi ? 'गाइड' : 'Guide'}</div>
+                </div>
+                <div class="space-y-4">
+                    ${tableRows}
+                </div>
+            </div>
+            ${rotationPlanHTML}
+        `;
+
+            resultsDiv.classList.remove('hidden');
+            gsap.utils.toArray('.animated-card').forEach(card => {
+                gsap.fromTo(card, { autoAlpha: 0, y: 50 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: 'power2.out', stagger: 0.1 });
+            });
+            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // --- NEW: Open Grow Guide Modal ---
+        window.openGrowGuide = async function (cropName) {
+            // Create modal if it doesn't exist
+            let modal = document.getElementById('growGuideModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'growGuideModal';
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-2xl font-bold text-gray-800">🌱 Grow Guide: <span id="guideCropName" class="capitalize"></span></h3>
+                            <button onclick="document.getElementById('growGuideModal').classList.remove('active')" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        <div id="growGuideContent" class="space-y-4 text-gray-700">
+                            <div class="flex justify-center"><div class="loader"></div></div>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+            }
+
+            modal.classList.add('active');
+            document.getElementById('guideCropName').innerText = cropName;
+            document.getElementById('growGuideContent').innerHTML = '<div class="flex justify-center"><div class="loader"></div> Fetching AI Guide...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/grow_guide`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ crop_name: cropName })
+                });
+
+                if (!response.ok) throw new Error("Failed to fetch guide");
+
+                const data = await response.json();
+
+                document.getElementById('growGuideContent').innerHTML = `
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <h4 class="font-bold text-green-800 mb-2">Description</h4>
+                        <p>${data.description}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <h4 class="font-bold text-blue-800 mb-2">Season & Duration</h4>
+                            <p><strong>Season:</strong> ${data.season}</p>
+                            <p><strong>Duration:</strong> ${data.growth_duration}</p>
+                        </div>
+                        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                            <h4 class="font-bold text-yellow-800 mb-2">Irrigation</h4>
+                            <p>${data.irrigation_plan}</p>
+                        </div>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                        <h4 class="font-bold text-red-800 mb-2">Pest Management</h4>
+                        <p>${data.pesticide_usage}</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error("Grow Guide Error:", error);
+                document.getElementById('growGuideContent').innerHTML = `<p class="text-red-600">Failed to load guide. Please try again.</p>`;
+            }
+        }
+
+        // --- KISANAI MINI (FLOATING CHAT) ---
+        window.toggleHelpCenter = function () {
+            document.getElementById('helpCenter').classList.toggle('active');
+            document.getElementById('helpButton').classList.toggle('hidden');
+        }
+
+        window.sendMessageAgent = async function () {
+            const input = document.getElementById('chatInputAgent');
+            const msg = input.value.trim();
+            if (!msg) return;
+            addMessageAgent(msg, 'user');
+            input.value = '';
+            addMessageAgent('...', 'ai', true);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/mini_chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: msg })
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'API Error');
+                }
+                const data = await response.json();
+                const typingIndicator = document.querySelector('.ai-message.typing');
+                if (typingIndicator) typingIndicator.remove();
+                addMessageAgent(data.response, 'ai');
+
+            } catch (error) {
+                console.error("KisanAI Mini Error:", error);
+                const typingIndicator = document.querySelector('.ai-message.typing');
+                if (typingIndicator) typingIndicator.remove();
+                addMessageAgent("Sorry, I couldn't connect to the AI. Please ensure the backend server is running and accessible.", 'ai');
+            }
+        }
+
+        function addMessageAgent(text, sender, isTyping = false) {
+            const container = document.getElementById('chatMessagesAgent');
+            const div = document.createElement('div');
+            div.className = `message ${sender}-message`;
+            if (isTyping) {
+                div.classList.add('typing');
+                div.innerHTML = `<div class="flex gap-1 items-center"><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div></div>`;
+            } else {
+                // --- THIS IS THE UPGRADED PART ---
+                // It correctly handles line breaks and bold text.
+                const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+                div.innerHTML = formattedText;
+            }
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        window.handleKeyPressAgent = function (e) { if (e.key === "Enter") sendMessageAgent(); }
+
+        // --- CROP DATA for Grow Page & Icons ---
+        const cropData = {
+            rice: { icon: '🌾', name: 'Rice (चावल)' }, wheat: { icon: '🌾', name: 'Wheat (गेहूं)' },
+            maize: { icon: '🌽', name: 'Maize (मक्का)' }, jute: { icon: '🌿', name: 'Jute (जूट)' },
+            cotton: { icon: '🌱', name: 'Cotton (कपास)' }, coconut: { icon: '🥥', name: 'Coconut (नारियल)' },
+            papaya: { icon: '🥭', name: 'Papaya (पपीता)' }, orange: { icon: '🍊', name: 'Orange (संतरा)' },
+            coffee: { icon: '☕', name: 'Coffee (कॉफी)' }, pomegranate: { icon: '🍇', name: 'Pomegranate (अनार)' },
+            banana: { icon: '🍌', name: 'Banana (केला)' }, mango: { icon: '🥭', name: 'Mango (आम)' },
+            grapes: { icon: '🍇', name: 'Grapes (अंगूर)' }, watermelon: { icon: '🍉', name: 'Watermelon (तरबूज)' },
+            muskmelon: { icon: '🍈', name: 'Muskmelon (खरबूजा)' }, apple: { icon: '🍎', name: 'Apple (सेब)' },
+            potato: { icon: '🥔', name: 'Potato (आलू)' }, pigeonpeas: { icon: '🌱', name: 'Pigeonpea (अरहर)' },
+            mothbeans: { icon: '🌱', name: 'Mothbeans (मोठ)' }
+        };
+
+        function populateGrowPage() {
+            const isHindi = currentLanguage === 'hindi';
+            const gridId = `cropGrid${isHindi ? 'Hindi' : ''}`;
+            const grid = document.getElementById(gridId);
+            if (!grid) return;
+
+            grid.innerHTML = '';
+            Object.keys(cropData).forEach(key => {
+                const crop = cropData[key];
+                const card = document.createElement('div');
+                card.className = "animated-card bg-white rounded-xl shadow p-4 cursor-pointer border-2 border-transparent hover:border-green-400 hover:shadow-xl transition-all text-center";
+                card.onclick = () => showCropReport(key, isHindi);
+                card.innerHTML = `<div class="text-4xl mb-2">${crop.icon}</div><h3 class="font-bold text-gray-800">${crop.name}</h3>`;
+                grid.appendChild(card);
+            });
+        }
+
+        window.showCropReport = async function (cropType, isHindi) {
+            const suffix = isHindi ? 'Hindi' : '';
+            document.getElementById(`cropSelection${suffix}`).classList.add('hidden');
+            const reportDiv = document.getElementById(`cropReport${suffix}`);
+            reportDiv.innerHTML = `<div class="flex flex-col items-center justify-center h-64"><div class="loader"></div><p class="mt-4 font-semibold text-gray-600">Fetching AI Grow Guide...</p></div>`;
+            reportDiv.classList.remove('hidden');
+            window.scrollTo(0, 0);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/grow_guide/${cropType}`);
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || `API Error`);
+                }
+                const guide = await response.json();
+                const crop = cropData[cropType];
+
+                reportDiv.innerHTML = `
+                <div class="mb-6">
+                    <button onclick="showCropSelection(${isHindi})" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">← ${isHindi ? 'फसल चयन पर वापस' : 'Back to Crop Selection'}</button>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-8 animated-card">
+                    <div class="text-center mb-8">
+                        <div class="text-6xl mb-4">${crop.icon}</div>
+                        <h2 class="text-3xl font-bold text-green-800 mb-2 capitalize">${cropType}</h2>
+                        <p class="text-gray-600 text-lg">${guide.description}</p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
+                            <h3 class="text-xl font-semibold text-blue-800 mb-4 flex items-center"><span class="mr-2">🗓️</span> ${isHindi ? 'मौसम और अवधि' : 'Season & Duration'}</h3>
+                            <p class="text-gray-700 mb-2"><strong>Season:</strong> ${guide.season}</p>
+                             <p class="text-gray-700"><strong>Duration:</strong> ${guide.growth_duration}</p>
+                        </div>
+                        <div class="bg-yellow-50 rounded-lg p-6 border border-yellow-200">
+                             <h3 class="text-xl font-semibold text-yellow-800 mb-4 flex items-center"><span class="mr-2">💧</span> ${isHindi ? 'सिंचाई योजना' : 'Irrigation Plan'}</h3>
+                            <p class="text-gray-700">${guide.irrigation_plan}</p>
+                        </div>
+                        <div class="bg-red-50 rounded-lg p-6 border border-red-200 lg:col-span-2">
+                            <h3 class="text-xl font-semibold text-red-800 mb-4 flex items-center"><span class="mr-2">🐞</span> ${isHindi ? 'कीटनाशक उपयोग' : 'Pest & Disease Management'}</h3>
+                            <p class="text-gray-700">${guide.pesticide_usage}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+                gsap.fromTo('.animated-card', { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, duration: 0.5 });
+            } catch (error) {
+                reportDiv.innerHTML = `<div class="text-center text-red-500">${error.message}</div>`;
+            }
+        }
+
+        window.showCropSelection = function (isHindi) {
+            const suffix = isHindi ? 'Hindi' : '';
+            document.getElementById(`cropReport${suffix}`).classList.add('hidden');
+            document.getElementById(`cropSelection${suffix}`).classList.remove('hidden');
+        }
+    </script>
+
+</body>
+
+</html>

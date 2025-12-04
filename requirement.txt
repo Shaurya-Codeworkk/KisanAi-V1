@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+joblib
+pandas
+numpy
+requests
+groq
+python-multipart

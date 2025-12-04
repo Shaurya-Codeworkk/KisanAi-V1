@@ -1,0 +1,339 @@
+{
+  "soil_location_up,redsoil": {
+    "city_or_state": "up",
+    "soil_type": "redsoil",
+    "N": 150.0,
+    "P": 50.0,
+    "K": 100.0,
+    "pH": 6.5,
+    "rainfall": 1200.0
+  },
+  "npk_up_redsoil": {
+    "N": 150,
+    "P": 50,
+    "K": 100,
+    "pH": 6.5,
+    "rainfall": 1200
+  },
+  "crop_prices": {
+    "rice": 45,
+    "wheat": 36,
+    "cotton": 78,
+    "jute": 52,
+    "coffee": 380,
+    "mango": 25,
+    "pigeonpeas": 90,
+    "orange": 50,
+    "coconut": 30,
+    "potato": 20,
+    "maize": 22
+  },
+  "crop_details_coffee": {
+    "soil": "Well-drained, slightly acidic loam",
+    "irrigation": "Regular, deep watering",
+    "fertilizer": "Balanced, slow-release fertilizer",
+    "pesticides": "Integrated pest management practices"
+  },
+  "crop_details_rice": {
+    "soil": "Clay loam to silt loam with good drainage",
+    "irrigation": "Flooded or intermittently flooded",
+    "fertilizer": "Nitrogen, phosphorus, potassium",
+    "pesticides": "Integrated pest management strategies"
+  },
+  "crop_details_jute": {
+    "soil": "Loamy, clay loam, or silt loam with good drainage",
+    "irrigation": "Regular irrigation, especially during dry spells",
+    "fertilizer": "Nitrogen, phosphorus, and potassium fertilizers",
+    "pesticides": "Insecticides and fungicides as needed to control pests and diseases"
+  },
+  "crop_details_cotton": {
+    "soil": "Sandy loam to clay loam with good drainage",
+    "irrigation": "Frequent and deep irrigation, especially during flowering and boll development",
+    "fertilizer": "Nitrogen, phosphorus, and potassium fertilizers applied based on soil test recommendations",
+    "pesticides": "Integrated pest management (IPM) strategies including insecticides, fungicides, and herbicides"
+  },
+  "crop_details_pigeonpeas": {
+    "soil": "Well-drained, loamy soils with a pH of 6.0 to 7.5",
+    "irrigation": "Regular irrigation is required, especially during flowering and pod development",
+    "fertilizer": "Apply a balanced fertilizer (e.g., 10-10-10) at planting and during the growing season",
+    "pesticides": "Monitor for pests and diseases and apply pesticides as needed"
+  },
+  "crop_details_wheat": {
+    "soil": "Loamy or sandy loam soil with good drainage",
+    "irrigation": "30-40 cm of water throughout the growing season",
+    "fertilizer": "120-150 kg of nitrogen, 60 kg of phosphorus, and 40 kg of potassium per hectare",
+    "pesticides": "Apply as needed based on pest and disease pressure"
+  },
+  "soil_location_duhai,up,redsoil": {
+    "city_or_state": "duhai,up",
+    "soil_type": "redsoil",
+    "N": 150.0,
+    "P": 40.0,
+    "K": 120.0,
+    "pH": 6.5,
+    "rainfall": 1200.0
+  },
+  "npk_duhai,up_redsoil": {
+    "N": 150,
+    "P": 40,
+    "K": 120,
+    "pH": 6.5,
+    "rainfall": 1200
+  },
+  "rotation_coffee_duhai,up": {
+    "season_1_crop": "Pigeon Pea",
+    "season_1_reason": "Pigeon pea is a nitrogen-fixing legume that enriches the soil with organic matter and improves its fertility for the subsequent coffee crop.",
+    "season_2_crop": "Cowpea",
+    "season_2_reason": "Cowpea, another legume, further enhances soil fertility and suppresses weeds, contributing to sustainable coffee production."
+  },
+  "future_price_coffee_duhai,up": {
+    "future_price": 450
+  },
+  "future_price_rice_duhai,up": {
+    "future_price": 3200
+  },
+  "future_price_jute_duhai,up": {
+    "future_price": 8500
+  },
+  "future_price_cotton_duhai,up": {
+    "future_price": 6500
+  },
+  "future_price_mothbeans_duhai,up": {
+    "future_price": 8500
+  },
+  "rotation_jute_duhai,up": {
+    "season_1_crop": "Moong Bean",
+    "season_1_reason": "Moong bean is a nitrogen-fixing legume that enriches the soil with nitrogen, benefiting the subsequent jute crop.",
+    "season_2_crop": "Jute",
+    "season_2_reason": "Jute is a deep-rooted crop that helps break up compacted soil and improve drainage, further enhancing soil health."
+  },
+  "soil_location_mirzapur, up with red soil": {
+    "city_or_state": "Mirzapur, UP",
+    "soil_type": "red soil"
+  },
+  "npk_mirzapur, up_red soil": {
+    "N": 150,
+    "P": 40,
+    "K": 100,
+    "pH": 6.5,
+    "rainfall": 1200
+  },
+  "soil_location_mirzapur,up,redsoil": {
+    "city_or_state": "Mirzapur,up",
+    "soil_type": "redsoil",
+    "N": 0.15,
+    "P": 0.05,
+    "K": 0.2,
+    "pH": 6.5,
+    "rainfall": 1200.0
+  },
+  "npk_mirzapur,up,_redsoil": {
+    "N": 0.15,
+    "P": 0.05,
+    "K": 0.2,
+    "pH": 6.5,
+    "rainfall": 1200
+  },
+  "future_price_orange_mirzapur,up": {
+    "future_price": 25
+  },
+  "future_price_pigeonpeas_mirzapur,up": {
+    "future_price": 8500
+  },
+  "future_price_rice_mirzapur,up": {
+    "future_price": 3200
+  },
+  "future_price_coconut_mirzapur,up": {
+    "future_price": 125
+  },
+  "future_price_jute_mirzapur,up": {
+    "future_price": 12500
+  },
+  "rotation_jute_mirzapur,up": {
+    "season_1_crop": "Moong Bean",
+    "season_1_reason": "Nitrogen-fixing legume, improves soil fertility after jute harvest.",
+    "season_2_crop": "Wheat",
+    "season_2_reason": "Drought-tolerant, utilizes residual soil nutrients from moong bean."
+  },
+  "soil_location_mirzaput,up,redsoil": {
+    "city_or_state": "mirzaput,up",
+    "soil_type": "redsoil",
+    "N": 150.0,
+    "P": 20.0,
+    "K": 100.0,
+    "pH": 6.5,
+    "rainfall": 1000.0
+  },
+  "npk_mirzaput,up,_redsoil": {
+    "N": 150,
+    "P": 20,
+    "K": 100,
+    "pH": 6.5,
+    "rainfall": 1000
+  },
+  "future_price_coffee_mirzaput,up": {
+    "future_price": 450
+  },
+  "future_price_rice_mirzaput,up": {
+    "future_price": 3200
+  },
+  "future_price_jute_mirzaput,up": {
+    "future_price": 12500
+  },
+  "future_price_cotton_mirzaput,up": {
+    "future_price": 7500
+  },
+  "future_price_coconut_mirzaput,up": {
+    "future_price": 125
+  },
+  "rotation_jute_mirzaput,up": {
+    "season_1_crop": "Moong Bean",
+    "season_1_reason": "Nitrogen-fixing legume, improves soil fertility after jute.",
+    "season_2_crop": "Wheat",
+    "season_2_reason": "Drought-tolerant, utilizes residual nutrients from moong bean."
+  },
+  "soil_location_mirzapur,up,alluvialsoil": {
+    "city_or_state": "mirzapur,up",
+    "soil_type": "alluvialsoil",
+    "N": 150.0,
+    "P": 30.0,
+    "K": 100.0,
+    "pH": 7.5,
+    "rainfall": 1000.0
+  },
+  "npk_mirzapur,up,_alluvialsoil": {
+    "N": 150,
+    "P": 30,
+    "K": 100,
+    "pH": 7.5,
+    "rainfall": 1000
+  },
+  "future_price_coffee_mirzapur,up": {
+    "future_price": 650
+  },
+  "future_price_cotton_mirzapur,up": {
+    "future_price": 7500
+  },
+  "mini_chat_what_is_wheat": "Wheat is a cereal grain, a staple food for millions worldwide.  It's known for its versatility, used in bread, pasta, and many other food products.  \n\n",
+  "future_price_coffee_up": {
+    "future_price": 650
+  },
+  "future_price_rice_up": {
+    "future_price": 3200
+  },
+  "future_price_cotton_up": {
+    "future_price": 45000
+  },
+  "future_price_mothbeans_up": {
+    "future_price": 7500
+  },
+  "future_price_jute_up": {
+    "future_price": 12500
+  },
+  "rotation_cotton_up": {
+    "season_1_crop": "Moong Bean",
+    "season_1_reason": "Nitrogen fixing legume, improves soil fertility for subsequent crops.",
+    "season_2_crop": "Wheat",
+    "season_2_reason": "Drought tolerant, utilizes residual soil moisture and nutrients from moong bean."
+  },
+  "soil_location_pune,mh,alluvial_soil": {
+    "city_or_state": "pune,mh",
+    "soil_type": "alluvial soil",
+    "N": 150.0,
+    "P": 40.0,
+    "K": 100.0,
+    "pH": 7.5,
+    "rainfall": 750.0
+  },
+  "npk_pune,mh,_alluvial_soil": {
+    "N": 150,
+    "P": 40,
+    "K": 100,
+    "pH": 7.5,
+    "rainfall": 750
+  },
+  "future_price_coffee_pune,mh": {
+    "future_price": 650
+  },
+  "future_price_rice_pune,mh": {
+    "future_price": 3200
+  },
+  "future_price_jute_pune,mh": {
+    "future_price": 12500
+  },
+  "future_price_cotton_pune,mh": {
+    "future_price": 6500
+  },
+  "future_price_pigeonpeas_pune,mh": {
+    "future_price": 75
+  },
+  "rotation_jute_pune,mh": {
+    "season_1_crop": "Cowpea",
+    "season_1_reason": "Fixes nitrogen in the soil, benefiting subsequent jute crops.",
+    "season_2_crop": "Wheat",
+    "season_2_reason": "Drought-tolerant and can utilize residual nutrients from cowpea."
+  },
+  "grow_guide_maize": {
+    "description": "Maize, a versatile cereal grain, thrives in India's diverse climate and is a staple food and feed source. ",
+    "season": "Kharif (June-July) and Rabi (October-November) seasons.",
+    "growth_duration": "90-120 days",
+    "irrigation_plan": "Regular irrigation is crucial, especially during flowering and grain filling stages. Aim for 2-3 irrigations per week.",
+    "pesticide_usage": "Key pests include stem borers, earworms, and aphids.  Integrated pest management practices, including crop rotation, biological control, and judicious pesticide use, are recommended."
+  },
+  "refine_v2_ghaziabad,up_maize_pigeonpeas_jute_mothbeans": {
+    "valid_crops": [
+      "maize",
+      "pigeonpeas",
+      "mothbeans"
+    ]
+  },
+  "future_price_quintal_maize_ghaziabad,up": {
+    "future_price": 1850
+  },
+  "future_price_quintal_pigeonpeas_ghaziabad,up": {
+    "future_price": 8500
+  },
+  "future_price_quintal_mothbeans_ghaziabad,up": {
+    "future_price": 8500
+  },
+  "rotation_pigeonpeas_ghaziabad,up": {
+    "season_1_crop": "Wheat",
+    "season_1_reason": "Wheat is a suitable crop to follow pigeonpeas due to its ability to utilize residual soil moisture and nutrients, and it helps to break disease and pest cycles",
+    "season_2_crop": "Mungbean",
+    "season_2_reason": "Mungbean is a legume that fixes nitrogen, replenishing soil fertility after wheat, and its short duration allows it to fit between wheat and the next crop, making it an ideal choice for the second season"
+  },
+  "soil_location_ghaziabad,up_with_alluvial_soil": {
+    "city_or_state": "Ghaziabad, UP",
+    "soil_type": "alluvial soil",
+    "N": 140.0,
+    "P": 10.0,
+    "K": 200.0,
+    "pH": 7.5,
+    "rainfall": 933.0
+  },
+  "npk_ghaziabad,_up,_alluvial_soil": {
+    "N": 140,
+    "P": 10,
+    "K": 200,
+    "pH": 7.5,
+    "rainfall": 933
+  },
+  "refine_v2_ghaziabad,_up_rice_cotton_jute_coconut": {
+    "valid_crops": [
+      "cotton",
+      "jute"
+    ]
+  },
+  "future_price_quintal_cotton_ghaziabad,_up": {
+    "future_price": 8700
+  },
+  "future_price_quintal_jute_ghaziabad,_up": {
+    "future_price": 4200
+  },
+  "rotation_cotton_ghaziabad,_up": {
+    "season_1_crop": "Wheat",
+    "season_1_reason": "Wheat is a suitable crop for the winter season in Ghaziabad, UP, and it helps to break disease and pest cycles associated with cotton. It also improves soil health by adding organic matter.",
+    "season_2_crop": "Mung Bean",
+    "season_2_reason": "Mung bean is a legume that fixes nitrogen in the soil, which benefits the soil after wheat. It's also a low-water requirement crop, suitable for the summer season in Ghaziabad, and helps to control nematodes that can harm subsequent crops."
+  }
+}
