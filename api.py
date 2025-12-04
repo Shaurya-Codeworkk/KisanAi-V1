@@ -1,17 +1,35 @@
-# api.py
+# api.py  — safe, lazy-importing FastAPI wrapper (paste entire file, overwrite existing api.py)
+
+import importlib
+import traceback
 import os
-import json
 from typing import Dict, Any
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-# Keep mini copilot import (you already had this)
-from mini_kisan_copilot import mini_copilot_response
+# Immediately expose an ASGI app so Uvicorn won't fail before imports.
+app = FastAPI(
+    title="Kisan Sathi API (Safe Loader)",
+    description="Frontend + backend wrapper that lazily loads heavy modules.",
+    version="2.0.0"
+)
 
-router = APIRouter(prefix="")
+# Templates (make sure your index.html is in templates/index.html)
+templates = Jinja2Templates(directory="templates")
 
-# --- Pydantic Models ---
+# CORS — keep permissive for now
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
+
+# --- Pydantic request models ---
 class AgentInput(BaseModel):
     prompt: str = Field(..., example="Suggest crops for black soil in Pune, MH")
 
@@ -28,266 +46,190 @@ class ManualInput(BaseModel):
 class MiniChatInput(BaseModel):
     query: str = Field(..., example="tell me about wheat")
 
+# --- Lazy import helpers ---
+_cached_core = None
+_cached_mini = None
+_cached_core_err = None
+_cached_mini_err = None
 
-# --- Helper: Safe check if ML models are available (deferred import to avoid circular import) ---
-def _models_loaded() -> bool:
-    try:
-        # Deferred import from app.py where models are loaded
-        from app import model, scaler, encoder  # noqa: F401
-        return all([model is not None, scaler is not None, encoder is not None])
-    except Exception:
-        return False
-
-
-# --- Helper: deferred imports of functions from app.py (prevents circular import at module-load time) ---
-def _get_core_funcs():
+def import_core_module():
     """
-    Returns a dict of functions imported from app.py.
-    Import is done when endpoint is executed.
+    Lazily import app.py as 'core'. Return tuple (module or None, error_trace or None)
     """
+    global _cached_core, _cached_core_err
+    if _cached_core is not None or _cached_core_err is not None:
+        return _cached_core, _cached_core_err
     try:
-        from app import (
-            get_soil_and_location_details,
-            fill_missing_values_ai,
-            format_city_for_weather,
-            get_live_weather,
-            make_prediction,
-            validate_with_gemini,
-            get_live_crop_prices,
-            get_future_price_ai,
-            rank_top_3,
-            get_crop_rotation_plan,
-            get_grow_guide_details,
-            save_results,
-            traffic_light_color,
-        )
-        return {
-            "get_soil_and_location_details": get_soil_and_location_details,
-            "fill_missing_values_ai": fill_missing_values_ai,
-            "format_city_for_weather": format_city_for_weather,
-            "get_live_weather": get_live_weather,
-            "make_prediction": make_prediction,
-            "validate_with_gemini": validate_with_gemini,
-            "get_live_crop_prices": get_live_crop_prices,
-            "get_future_price_ai": get_future_price_ai,
-            "rank_top_3": rank_top_3,
-            "get_crop_rotation_plan": get_crop_rotation_plan,
-            "get_grow_guide_details": get_grow_guide_details,
-            "save_results": save_results,
-            "traffic_light_color": traffic_light_color,
-        }
+        _cached_core = importlib.import_module("app")  # your app.py
+        _cached_core_err = None
     except Exception as e:
-        # If import fails, return empty dict — endpoints will handle failure
-        print(f"Deferred core import failed: {e}")
-        return {}
+        _cached_core = None
+        _cached_core_err = traceback.format_exc()
+        print("api.import_core_module failed:", _cached_core_err)
+    return _cached_core, _cached_core_err
 
+def import_mini_module():
+    """
+    Lazily import mini_kisan_copilot.
+    """
+    global _cached_mini, _cached_mini_err
+    if _cached_mini is not None or _cached_mini_err is not None:
+        return _cached_mini, _cached_mini_err
+    try:
+        _cached_mini = importlib.import_module("mini_kisan_copilot")
+        _cached_mini_err = None
+    except Exception:
+        _cached_mini = None
+        _cached_mini_err = traceback.format_exc()
+        print("api.import_mini_module failed:", _cached_mini_err)
+    return _cached_mini, _cached_mini_err
 
 # --- Endpoints ---
 
-@router.get("/status", tags=["Health"])
+@app.get("/", response_class=HTMLResponse, tags=["UI"])
+def serve_homepage(request: Request):
+    """
+    Serves templates/index.html. Ensure templates/index.html exists.
+    """
+    try:
+        return templates.TemplateResponse("index.html", {"request": request})
+    except Exception as e:
+        # Template missing — return helpful message
+        return HTMLResponse(
+            content=f"<h2>Index not found</h2><pre>{str(e)}</pre>",
+            status_code=500
+        )
+
+@app.get("/status", tags=["Health"])
 def get_status():
     """
-    API health check - reports if ML models are loaded.
+    Returns whether core and mini modules loaded plus any import error traces so you can debug.
     """
+    core, core_err = import_core_module()
+    mini, mini_err = import_mini_module()
+
+    models_loaded = False
+    try:
+        if core and all(getattr(core, name, None) for name in ("model", "scaler", "encoder")):
+            models_loaded = True
+    except Exception:
+        models_loaded = False
+
     return {
         "status": "ok",
         "service": "Kisan Sathi API",
-        "models_loaded": _models_loaded(),
-        "message": "Service is running."
+        "core_loaded": core is not None,
+        "mini_loaded": mini is not None,
+        "models_loaded": models_loaded,
+        "core_import_error": None if core_err is None else core_err.splitlines()[-10:],  # last 10 lines
+        "mini_import_error": None if mini_err is None else mini_err.splitlines()[-10:]
     }
 
-
-@router.post("/predict/agent", tags=["KisanAI Pro"])
+@app.post("/predict/agent", tags=["KisanAI Pro"])
 def predict_with_agent(data: AgentInput):
     """
-    Agent-driven prediction endpoint (uses AI to parse farmer prompt and then full workflow).
+    Agent endpoint. Will lazily load core and run agent flow (if core provides process_recommendations).
     """
-    core = _get_core_funcs()
-    if not core:
-        raise HTTPException(status_code=500, detail="Core functions unavailable. Check app.py importability.")
+    core, core_err = import_core_module()
+    if core is None:
+        raise HTTPException(status_code=500, detail=f"Core module failed to import. See /status for error. Trace excerpt:\n{core_err}")
 
-    if not _models_loaded():
-        raise HTTPException(status_code=503, detail="ML models are not loaded. Cannot make predictions.")
-
-    try:
-        base_details = core["get_soil_and_location_details"](data.prompt)
-        base_details = core["fill_missing_values_ai"](base_details)
-        city_for_weather = core["format_city_for_weather"](base_details["city_or_state"])
-        live_temp, live_humidity = core["get_live_weather"](city_for_weather)
-
-        final_data = {
-            "N": base_details["N"],
-            "P": base_details["P"],
-            "K": base_details["K"],
-            "temperature": live_temp,
-            "humidity": live_humidity,
-            "ph": base_details["pH"],
-            "rainfall": base_details["rainfall"],
-        }
-
-        # Run full workflow (with AI validation)
-        top_crops = core["make_prediction"](final_data, top_n=5)
-        # validate
+    # Prefer a single helper if present
+    if hasattr(core, "process_recommendations"):
         try:
-            top_crops_validated = core["validate_with_gemini"](top_crops, base_details["city_or_state"])
-            if top_crops_validated:
-                top_crops = top_crops_validated
-        except Exception as e:
-            print(f"Validation step failed (continuing with ML results): {e}")
-
-        # prices
-        live_prices = {}
-        try:
-            live_prices = core["get_live_crop_prices"]()
-        except Exception as e:
-            print(f"Live price fetch failed: {e}")
-
-        future_prices = {crop: core["get_future_price_ai"](crop, base_details["city_or_state"]) for crop, _ in top_crops}
-        ranked_top3 = core["rank_top_3"](top_crops, live_prices, future_prices)
-
-        rotation_plan = {}
-        if ranked_top3 and ranked_top3[2] != "N/A":
-            rotation_plan = core["get_crop_rotation_plan"](ranked_top3[2], base_details["city_or_state"])
-
-        comparison_table = [
-            {
-                "crop": c.title(),
-                "suitability_percent": p,
-                "live_price_rs_kg": f'₹{live_prices.get(c, 0):.2f}',
-                "predicted_future_price_rs_kg": f'₹{future_prices.get(c, -1.0):.2f}' if future_prices.get(c, -1.0) > 0 else "N/A",
-                "recommendation_color": core["traffic_light_color"](p),
+            # run agent flow (core handles AI fill etc)
+            final = core.process_recommendations  # function ref
+            # call as in your api: process_recommendations expects final_data, location, use_ai_validation True
+            # core.get_soil_and_location_details + fill + get_live_weather used inside core.process_recommendations in original design
+            base_details = core.get_soil_and_location_details(data.prompt) if hasattr(core, "get_soil_and_location_details") else {"city_or_state": data.prompt, "soil_type": "unknown"}
+            if hasattr(core, "fill_missing_values_ai"):
+                base_details = core.fill_missing_values_ai(base_details)
+            city_for_weather = core.format_city_for_weather(base_details["city_or_state"]) if hasattr(core, "format_city_for_weather") else base_details.get("city_or_state", "India")
+            live_temp, live_hum = core.get_live_weather(city_for_weather) if hasattr(core, "get_live_weather") else (28.0, 60.0)
+            final_data = {
+                "N": base_details.get("N", 50),
+                "P": base_details.get("P", 50),
+                "K": base_details.get("K", 50),
+                "temperature": live_temp,
+                "humidity": live_hum,
+                "ph": base_details.get("pH", 6.5),
+                "rainfall": base_details.get("rainfall", 400)
             }
-            for c, p in top_crops
-        ]
-
-        # Save results asynchronously-ish (function handles exceptions)
-        try:
-            core["save_results"](final_data, top_crops)
+            # Call the core helper; if signature different, it should raise so we catch below
+            result = core.process_recommendations(final_data, base_details.get("city_or_state", "India"), use_ai_validation=True)
+            return JSONResponse(result)
         except Exception as e:
-            print(f"Save results warning: {e}")
+            raise HTTPException(status_code=500, detail=f"Agent prediction failed: {traceback.format_exc()}")
+    else:
+        # Fallback: use basic make_prediction if available
+        if not hasattr(core, "make_prediction"):
+            raise HTTPException(status_code=500, detail="Core does not provide process_recommendations or make_prediction. See /status.")
+        try:
+            base = core.get_soil_and_location_details(data.prompt) if hasattr(core, "get_soil_and_location_details") else {"city_or_state": data.prompt, "soil_type": "unknown"}
+            base = core.fill_missing_values_ai(base) if hasattr(core, "fill_missing_values_ai") else base
+            city = core.format_city_for_weather(base["city_or_state"]) if hasattr(core, "format_city_for_weather") else base["city_or_state"]
+            temp, hum = core.get_live_weather(city) if hasattr(core, "get_live_weather") else (28.0, 60.0)
+            final_input = {"N": base.get("N", 50), "P": base.get("P", 50), "K": base.get("K", 50), "temperature": temp, "humidity": hum, "ph": base.get("pH", 6.5), "rainfall": base.get("rainfall", 400)}
+            top = core.make_prediction(final_input, top_n=5)
+            return JSONResponse({
+                "input_parameters": final_input,
+                "top_crops": top
+            })
+        except Exception:
+            raise HTTPException(status_code=500, detail=f"Agent fallback failed: {traceback.format_exc()}")
 
-        return {
-            "input_parameters": final_data,
-            "location_analyzed": base_details["city_or_state"],
-            "comparison_table": comparison_table,
-            "top_3_recommendations": {
-                "best_revenue": ranked_top3[0] if ranked_top3 else "N/A",
-                "transport_friendly": ranked_top3[1] if ranked_top3 else "N/A",
-                "balanced_choice": ranked_top3[2] if ranked_top3 else "N/A",
-            },
-            "smart_rotation_plan": rotation_plan,
-        }
-
-    except Exception as e:
-        print(f"Error in /predict/agent: {e}")
-        raise HTTPException(status_code=500, detail="An internal server error occurred in the AI Agent.")
-
-
-@router.post("/predict/manual", tags=["KisanAI Pro"])
+@app.post("/predict/manual", tags=["KisanAI Pro"])
 def predict_with_manual_input(data: ManualInput):
-    """
-    Manual numeric input -> ML-only predictions (no AI validation).
-    """
-    core = _get_core_funcs()
-    if not core:
-        raise HTTPException(status_code=500, detail="Core functions unavailable. Check app.py importability.")
-
-    if not _models_loaded():
-        raise HTTPException(status_code=503, detail="ML models are not loaded. Cannot make predictions.")
-
+    core, core_err = import_core_module()
+    if core is None:
+        raise HTTPException(status_code=500, detail=f"Core module failed to import. See /status for details.")
     try:
         final_data = data.dict()
         location = final_data.pop("city_or_state", "Unknown")
-
-        top_crops = core["make_prediction"](final_data, top_n=5)
-
-        live_prices = {}
-        try:
-            live_prices = core["get_live_crop_prices"]()
-        except Exception as e:
-            print(f"Live price fetch failed: {e}")
-
-        future_prices = {crop: core["get_future_price_ai"](crop, location) for crop, _ in top_crops}
-        ranked_top3 = core["rank_top_3"](top_crops, live_prices, future_prices)
-
-        rotation_plan = {}
-        if ranked_top3 and ranked_top3[2] != "N/A":
-            rotation_plan = core["get_crop_rotation_plan"](ranked_top3[2], location)
-
-        comparison_table = [
-            {
-                "crop": c.title(),
-                "suitability_percent": p,
-                "live_price_rs_kg": f'₹{live_prices.get(c, 0):.2f}',
-                "predicted_future_price_rs_kg": f'₹{future_prices.get(c, -1.0):.2f}' if future_prices.get(c, -1.0) > 0 else "N/A",
-                "recommendation_color": core["traffic_light_color"](p),
-            }
-            for c, p in top_crops
-        ]
-
-        try:
-            core["save_results"](final_data, top_crops)
-        except Exception as e:
-            print(f"Save results warning: {e}")
-
-        return {
+        # If process_recommendations exists, use it (same format as previous api.py)
+        if hasattr(core, "process_recommendations"):
+            result = core.process_recommendations(final_data, location, use_ai_validation=False)
+            return JSONResponse(result)
+        # else simple fallback
+        top = core.make_prediction(final_data, top_n=5) if hasattr(core, "make_prediction") else []
+        live_prices = core.get_live_crop_prices() if hasattr(core, "get_live_crop_prices") else {}
+        future_prices = {c: core.get_future_price_ai(c, location) for c,_ in top} if hasattr(core, "get_future_price_ai") else {}
+        ranked_top3 = core.rank_top_3(top, live_prices, future_prices) if hasattr(core, "rank_top_3") else []
+        return JSONResponse({
             "input_parameters": final_data,
-            "location_analyzed": location,
-            "comparison_table": comparison_table,
-            "top_3_recommendations": {
-                "best_revenue": ranked_top3[0] if ranked_top3 else "N/A",
-                "transport_friendly": ranked_top3[1] if ranked_top3 else "N/A",
-                "balanced_choice": ranked_top3[2] if ranked_top3 else "N/A",
-            },
-            "smart_rotation_plan": rotation_plan,
-        }
+            "top_crops": top,
+            "live_prices": live_prices,
+            "future_prices": future_prices,
+            "ranked_top3": ranked_top3
+        })
+    except Exception:
+        raise HTTPException(status_code=500, detail=f"Manual prediction failed: {traceback.format_exc()}")
 
-    except Exception as e:
-        print(f"Error in /predict/manual: {e}")
-        raise HTTPException(status_code=500, detail="An internal server error occurred during manual prediction.")
-
-
-@router.post("/mini_chat", tags=["KisanAI Mini"])
+@app.post("/mini_chat", tags=["KisanAI Mini"])
 def mini_chat_endpoint(data: MiniChatInput):
-    """
-    Mini chat endpoint using mini_kisan_copilot.py
-    """
+    mini, mini_err = import_mini_module()
+    if mini is None:
+        # helpful error, not silent — user needs to add dependency or env var
+        raise HTTPException(status_code=500, detail=f"mini_kisan_copilot failed to import. See /status for trace excerpt.\n{mini_err}")
+    if not hasattr(mini, "mini_copilot_response"):
+        raise HTTPException(status_code=500, detail="mini_kisan_copilot module does not expose mini_copilot_response()")
     try:
-        response_text = mini_copilot_response(data.query)
-        return {"response": response_text}
-    except Exception as e:
-        print("!!!!!!!!!! ERROR IN /mini_chat ENDPOINT !!!!!!!!!!!")
-        print(f"Error Type: {type(e).__name__}")
-        print(f"Error Details: {e}")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        raise HTTPException(status_code=500, detail="An error occurred in the Mini Chat assistant.")
+        text = mini.mini_copilot_response(data.query)
+        return {"response": text}
+    except Exception:
+        raise HTTPException(status_code=500, detail=f"Mini chat failed: {traceback.format_exc()}")
 
-
-@router.get("/grow_guide/{crop_name}", tags=["Grow Guide"])
+@app.get("/grow_guide/{crop_name}", tags=["Grow Guide"])
 def get_grow_guide_endpoint(crop_name: str):
-    """
-    Grow guide endpoint — defers to app.py's function.
-    """
-    core = _get_core_funcs()
-    if not core:
-        raise HTTPException(status_code=500, detail="Core functions unavailable. Check app.py importability.")
-
+    core, core_err = import_core_module()
+    if core is None:
+        raise HTTPException(status_code=500, detail=f"Core import failed. See /status.")
+    if not hasattr(core, "get_grow_guide_details"):
+        raise HTTPException(status_code=500, detail="Core does not implement get_grow_guide_details()")
     try:
-        guide_data = core["get_grow_guide_details"](crop_name)
-        if not guide_data:
-            raise HTTPException(status_code=404, detail="Could not generate a guide for this crop.")
-        return guide_data
-    except Exception as e:
-        print(f"An error occurred in /grow_guide: {e}")
-        raise HTTPException(status_code=500, detail="An error occurred while generating the grow guide.")
-
-
-# Optional: a lightweight route to serve static index (if you want to keep it here).
-# NOTE: Recommended: let app.py mount StaticFiles. If you still want this, uncomment:
-#
-# @router.get("/", response_class=FileResponse)
-# def serve_index():
-#     if os.path.exists("static/index.html"):
-#         return FileResponse("static/index.html")
-#     raise HTTPException(status_code=404, detail="Index not found.")
-#
+        guide = core.get_grow_guide_details(crop_name)
+        if not guide:
+            raise HTTPException(status_code=404, detail="Could not generate guide for this crop.")
+        return guide
+    except Exception:
+        raise HTTPException(status_code=500, detail=f"Grow guide failed: {traceback.format_exc()}")
